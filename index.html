@@ -1,0 +1,1660 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>車両軌跡シミュレーター＆DXFジェネレーター v0.048 (iPad最適化・完全版)</title>
+  <style>
+    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#1e1e1e;color:#fff;margin:0;padding:20px;box-sizing:border-box;height:100vh;height:100svh;overflow:hidden;display:flex;flex-direction:column}
+    .disclaimer-bar{flex-shrink:0;width:100%;max-width:1400px;margin:0 auto 12px auto;box-sizing:border-box;background:#320;color:#fc6;border:1px solid #664d00;border-radius:6px;padding:6px 14px;font-size:.78rem;font-weight:bold;text-align:center;line-height:1.4}
+    .wrap{display:flex;gap:20px;max-width:1400px;margin:0 auto;width:100%;flex:1 1 auto;min-height:0;flex-wrap:nowrap}
+    .sidebar{width:380px;flex-shrink:0;background:#2d2d2d;padding:20px;border-radius:8px;box-shadow:0 4px 6px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:10px;height:100%;overflow:hidden;box-sizing:border-box}
+    .sidebar-scroll{flex:1;overflow-y:auto;min-height:0;padding-right:4px;display:flex;flex-direction:column;gap:6px}
+    .sidebar-scroll::-webkit-scrollbar{width:6px}
+    .sidebar-scroll::-webkit-scrollbar-thumb{background:#555;border-radius:3px}
+    .sidebar-scroll::-webkit-scrollbar-track{background:#222;border-radius:3px}
+    .canvas-area{flex-grow:1;min-width:0;background:#2d2d2d;padding:20px;border-radius:8px;display:flex;flex-direction:column;justify-content:center;align-items:center;box-shadow:0 4px 6px rgba(0,0,0,.3);gap:12px;position:relative;height:100%;box-sizing:border-box}
+    .canvas-wrap{flex-grow:1;width:100%;display:flex;justify-content:center;align-items:center;min-height:0}
+    canvas{background:#000;border:1px solid #555;border-radius:4px;max-width:100%;max-height:100%;object-fit:contain;cursor:crosshair;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;outline:none}
+    .silhouette-box{position:absolute;top:15px;right:15px;width:480px;background:rgba(17,17,17,.94);border:1px solid #444;border-radius:6px;padding:10px;z-index:5;box-shadow:0 4px 12px rgba(0,0,0,.6)}
+    .silhouette-box svg{width:100%;height:auto;display:block;border:1px solid #333;background:#0a0a0a;border-radius:4px}
+    .silhouette-toggle{position:absolute;top:15px;right:15px;z-index:6;background:#333;color:#ccc;border:1px solid #555;border-radius:4px;padding:5px 10px;font-size:.8rem;cursor:pointer;width:auto;font-weight:bold}
+    .silhouette-toggle:hover{background:#444}
+    .truck-group{transform-origin:50% 235px;transition:transform .4s cubic-bezier(.68,-.55,.27,1.55)}
+    .truck-group.tilt-front{transform:rotate(15deg)}
+    .truck-group.tilt-rear{transform:rotate(-15deg)}
+    .c-blue{fill:rgba(0,170,255,.12);stroke:#0af;stroke-width:2;stroke-linejoin:round}
+    .c-green{fill:rgba(0,204,102,.12);stroke:#0c6;stroke-width:2;stroke-linejoin:round}
+    .c-purple{fill:rgba(204,102,255,.12);stroke:#c6f;stroke-width:2;stroke-linejoin:round}
+    .c-yellow{fill:rgba(255,200,0,.12);stroke:#fc0;stroke-width:2;stroke-linejoin:round}
+    .c-cab{fill:rgba(255,255,255,.06);stroke:#fff;stroke-width:2;stroke-linejoin:round}
+    .tire{fill:#222;stroke:#888;stroke-width:3}
+    .tire-lg{fill:#222;stroke:#888;stroke-width:4}
+    .joint{fill:#f04;stroke:#fff;stroke-width:2}
+    .guide-line{stroke:#888;stroke-width:1.5;stroke-dasharray:4 4}
+    .dim-line{stroke:#0af;stroke-width:2}
+    .dim-text,.dim-text-sm{fill:#0af;font-weight:bold;text-anchor:middle;font-family:sans-serif;font-size:16px;cursor:help}
+    .ground{stroke:#555;stroke-width:1.5}
+    .cg-marker{fill:#fc0;stroke:#f80;stroke-width:2}
+    .alert-box{background:#f04;color:#fff;padding:6px;border-radius:4px;font-weight:bold;text-align:center;margin-top:8px;font-size:.85rem;display:none}
+    .alert-box.show{display:block;animation:shake .5s}
+    @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+    .toast-notify{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(255,0,68,.95);color:#fff;padding:12px 24px;border-radius:6px;font-weight:bold;font-size:1rem;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,.5);pointer-events:none;opacity:0;transition:opacity .3s;border:1px solid #f44;display:none;line-height:1.5;text-align:center;width:max-content;max-width:90vw;}
+    .toast-notify.show{opacity:1;display:block}
+    .mode-tabs{display:flex;width:100%;border-radius:6px;overflow:hidden;border:1px solid #444;flex-shrink:0}
+    .mode-tab{flex:1;text-align:center;padding:10px 0;background:#222;cursor:pointer;font-size:.95rem;font-weight:bold;color:#888;transition:background .2s,color .2s;user-select:none}
+    .mode-tab.active{background:#007acc;color:#fff}
+    .mode-tab input{display:none}
+    h2{font-size:1.05rem;margin:0;border-bottom:1px solid #444;padding-bottom:8px;color:#0af}
+    details.section,div.section{background:#222;padding:10px 14px;border-radius:6px;border:1px solid #444;flex-shrink:0}
+    summary{font-size:1.05rem;font-weight:bold;color:#0af;cursor:pointer;outline:none;border-bottom:1px solid #444;padding-bottom:5px;margin-bottom:10px;user-select:none;list-style:none}
+    summary::-webkit-details-marker{display:none}
+    summary::after{content:'▼';float:right;font-size:.8rem;color:#888;margin-top:4px}
+    details[open] summary::after{content:'▲'}
+    details[open] summary{margin-bottom:12px}
+    .note{font-size:.75rem;color:#888;margin:-4px 0 8px 0}
+    .form-group{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;margin-bottom:8px;gap:6px}
+    .form-group label{font-size:.9rem;color:#ddd;flex:1 1 120px;min-width:90px}
+    input,select{background:#111;border:1px solid #555;color:#fff;padding:5px;border-radius:4px;width:100px;text-align:right;font-size:.85rem;flex:0 0 auto}
+    select{text-align:left;width:auto;max-width:100%}
+    button{width:100%;padding:12px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;font-size:1rem;transition:background .2s;flex-shrink:0}
+    button:disabled{background:#555!important;color:#aaa!important;cursor:not-allowed}
+    .btn-draw{background:#007acc;color:#fff}
+    .btn-draw:hover:not(:disabled){background:#0098ff}
+    .btn-img{background:#8844aa;color:#fff}
+    .btn-img:hover:not(:disabled){background:#9955bb}
+    .btn-dxf{background:#2ea043;color:#fff}
+    .btn-dxf:hover:not(:disabled){background:#3fb950}
+    .btn-add{background:#444;color:#fff;margin-top:4px;padding:8px;font-size:.85rem}
+    .btn-add:hover{background:#555}
+    .steps-list{display:flex;flex-direction:column;gap:6px;margin-bottom:6px}
+    .step-row{display:flex;flex-direction:column;background:#1a1a1a;padding:6px;border-radius:4px;border:1px solid #333}
+    .step-num{font-size:.8rem;color:#888}
+    .btn-remove{transition:opacity .2s}
+    .btn-remove:disabled{opacity:.3!important;cursor:not-allowed!important;background:#555!important}
+    .result-box{width:100%;max-width:750px;background:#1a1a1a;border:1px solid #444;border-radius:6px;padding:10px 14px;font-size:.85rem;color:#ccc;display:flex;flex-wrap:wrap;gap:16px;flex-shrink:0;box-sizing:border-box}
+    .result-box b{color:#0af}
+    .warn{color:#f80;font-size:.8rem;margin-top:4px}
+    .legend-icon-rect{display:inline-block;width:12px;height:12px;margin-right:4px;vertical-align:middle;border-radius:2px}
+    .legend-icon-fwd{display:inline-block;width:0;height:0;border-top:5px solid transparent;border-bottom:5px solid transparent;border-left:8px solid #fff;margin-right:4px;vertical-align:middle}
+    .legend-icon-rev{display:inline-block;width:0;height:0;border-top:5px solid transparent;border-bottom:5px solid transparent;border-left:8px solid #f44;margin-right:4px;vertical-align:middle}
+    .legend-line-solid{display:inline-block;width:16px;height:3px;vertical-align:middle;margin:0 4px}
+    .legend-line-dash{display:inline-block;width:16px;height:3px;vertical-align:middle;margin:0 4px;border-top:3px dashed;height:0}
+    .numpad-container{position:absolute;top:15px;left:15px;width:240px;background:#222;border:1px solid #555;border-radius:8px;box-shadow:0 8px 16px rgba(0,0,0,.6);z-index:2000;display:none;flex-direction:column;overflow:hidden;user-select:none}
+    .numpad-header{background:#007acc;color:#fff;padding:8px 12px;font-size:.9rem;font-weight:bold;display:flex;justify-content:space-between;align-items:center;cursor:move;touch-action:none}
+    .numpad-header .close-btn{background:transparent;color:#fff;border:none;font-size:1.2rem;cursor:pointer;padding:0;line-height:1;width:auto}
+    .numpad-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#444;padding:1px}
+    .numpad-btn{background:#1a1a1a;color:#fff;border:none;font-size:1.2rem;padding:15px 0;cursor:pointer;transition:background .1s;border-radius:0;width:100%}
+    .numpad-btn:hover{background:#333}
+    .numpad-btn:active{background:#555}
+    .numpad-btn.cmd{background:#2d2d2d;color:#fa0;font-size:1rem}
+    .numpad-btn.enter{background:#2ea043;color:#fff;grid-column:span 2}
+    .numpad-btn.enter:hover{background:#3fb950}
+    
+    /* コンテキストメニュー用スタイル */
+    .context-menu{position:fixed;background:rgba(30,30,30,0.95);border:1px solid #555;border-radius:6px;padding:6px;box-shadow:0 6px 16px rgba(0,0,0,0.6);z-index:3000;display:none;flex-direction:column;gap:4px;backdrop-filter:blur(4px)}
+    .context-menu button{padding:12px 20px;background:#2a2a2a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:.95rem;width:100%;text-align:left;white-space:nowrap;transition:background .1s}
+    .context-menu button:hover{background:#007acc}
+    .context-menu button.danger{color:#ff5555}
+    .context-menu button.danger:hover{background:#aa2222;color:#fff}
+  </style>
+</head>
+<body>
+  <div id="toast" class="toast-notify"></div>
+  <div class="disclaimer-bar">⚠ 本ツールは簡易シミュレーターです。車両寸法や回転半径は一般的な参考値であり、実車の正確な数値ではありません。<br>実際の安全確認は現場責任者の判断で行ってください。※本ツールの利用による事故・損害等の責任は一切負いかねます。</div>
+  
+  <div class="wrap">
+    <div class="sidebar" id="sidebarArea">
+      <!-- 上部固定エリア -->
+      <div style="flex-shrink:0; display:flex; flex-direction:column; gap:10px;">
+        <h2 style="border:none; display:flex; align-items:center; gap:8px;"><img src="data:image/png;base64,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" alt="logo" style="height:26px; width:auto; border-radius:3px; flex-shrink:0;"><span>車両軌跡<b style="color:#ffaa00; font-size:1.3rem;">簡易</b>シミュレーター <span style="font-size: 0.8rem; color: #888; font-weight: normal;">v0.048</span></span></h2>
+        <div class="mode-tabs">
+          <label class="mode-tab active" id="tab-sim">
+            <input type="radio" name="opMode" value="sim" checked onchange="onModeChange()"> 軌跡モード
+          </label>
+          <label class="mode-tab" id="tab-road">
+            <input type="radio" name="opMode" value="road" onchange="onModeChange()"> 道路描画モード
+          </label>
+        </div>
+        <div id="roadUI" class="road-only" style="display:none; background: #1a2a3a; padding: 12px; border-radius: 6px; border: 1px solid #00aaff;">
+          <div class="note" style="color:#7fd3ff; margin-bottom:5px;">
+            キャンバスをドラッグして道路（2本線）を引けます。<br>
+            <b>💡 引いた道路や<span style="color:#ffcc00;">寸法線</span>をドラッグして移動可能</b><br>
+            ※道路や寸法線を<b>長押し(または右クリック)</b>で削除
+          </div>
+          <div class="note" style="color:#ffaa00; margin-bottom:10px; font-weight:bold;">※この機能は道路幅のイメージ線を適当に描くだけの機能です。必要に応じてCADで修正してください。</div>
+          <div class="form-group" style="margin-bottom:0;"><label style="color:#fff;">道路幅 (m)</label><input type="number" step="0.1" id="roadWidth" value="4.0" inputmode="none"></div>
+        </div>
+      </div>
+
+      <!-- スクロールエリア -->
+      <div class="sidebar-scroll">
+        <!-- 車種 -->
+        <div class="section sim-only">
+          <h2 style="border:none; margin:0 0 5px 0;">車種プリセット</h2>
+          <select id="vehiclePreset" onchange="applyVehiclePreset()" style="width:100%; font-size:0.95rem; padding:8px;"></select>
+        </div>
+        <!-- 寸法 -->
+        <details class="section sim-only">
+          <summary>車両寸法 (mm)</summary>
+          <div class="note">プリセットは代表値です。正確な検証には車検証等を確認してください</div>
+          <div class="form-group"><label>全長 (L)</label><input type="number" id="L" value="4995" inputmode="none" oninput="onInputVehicle()"></div>
+          <div class="form-group"><label>全幅 (W)</label><input type="number" id="W" value="1850" inputmode="none" oninput="onInputVehicle()"></div>
+          <div class="form-group"><label>ホイールベース (WB)</label><input type="number" id="WB" value="3000" inputmode="none" oninput="onInputVehicle()"></div>
+          <div class="form-group"><label>フロントオーバーハング (FOH)</label><input type="number" id="FOH" value="955" inputmode="none" oninput="onInputVehicle()"></div>
+        </details>
+        <!-- 荷台 -->
+        <details class="section sim-only" id="trailerSectionWrap" style="display:none;">
+          <summary>荷台部分 (トレーラー)</summary>
+          <div id="trailerFields">
+            <div class="form-group"><label>プリセット</label><select id="trailerPreset" onchange="applyTrailerPreset()"></select></div>
+            <div class="form-group"><label>連結点オフセット(後軸から)</label><input type="number" id="hitchOffset" value="0" inputmode="none" oninput="onInputVehicle()"></div>
+            <div class="form-group"><label>トレーラー全幅(mm)</label><input type="number" id="trailerW" value="2490" inputmode="none" oninput="markAsChanged()"></div>
+            <div class="form-group"><label>連結点〜トレーラー軸中心</label><input type="number" id="trailerWB" value="9000" inputmode="none" oninput="onInputVehicle()"></div>
+            <div class="form-group"><label>トレーラー後端OH</label><input type="number" id="trailerROH" value="1500" inputmode="none" oninput="onInputVehicle()"></div>
+          </div>
+        </details>
+        <details class="section sim-only">
+          <summary>旋回性能</summary>
+          <div class="form-group" id="steerModeGroup"><label>操舵モード</label><select id="steerMode" onchange="onSteerModeChange()">
+            <option value="2ws">2輪操舵(標準)</option>
+            <option value="4ws">4輪操舵・逆位相(ラフター等)</option>
+          </select></div>
+          <div class="note" id="steerModeNote" style="display:none;">4輪操舵(逆位相)は旋回中心が車体中心(WB/2)に来るため、後部オーバーハングが外側に大きく振り出されます</div>
+          <div class="form-group"><label>最小回転半径 (R)</label><input type="number" id="R" value="5900" inputmode="none" oninput="validateInputs()"></div>
+          <div class="form-group"><label>トレッド幅 (近似値)</label><input type="number" id="TR" value="1600" inputmode="none" oninput="validateInputs()"></div>
+        </details>
+        <details class="section sim-only">
+          <summary>描画設定</summary>
+          <div class="form-group"><label>旋回の分割ステップ (度)</label><input type="number" id="step" value="10" inputmode="none" oninput="markAsChanged()"></div>
+        </details>
+        <!-- 走行 -->
+        <div class="section sim-only">
+          <h2 style="border:none; margin:0 0 5px 0;">走行設定</h2>
+          <div class="note">上から順に実行。「直進」は単位m。トレーラー後退時はAIによるフィードバック制御を使用できます</div>
+          <div id="stepsList" class="steps-list"></div>
+          <button class="btn-add" onclick="addStep()">＋ ステップ追加</button>
+        </div>
+      </div>
+
+      <!-- 下部固定エリア -->
+      <div style="flex-shrink:0; display:flex; flex-direction:column; gap:10px;">
+        <button class="btn-draw sim-only" onclick="draw()">描画更新 (軌跡再計算)</button>
+        <div style="position:relative; width:100%;">
+          <div id="imgMenu" style="display:none; position:absolute; bottom:calc(100% + 5px); left:0; width:100%; background:#222; border:1px solid #555; border-radius:6px; padding:6px; box-sizing:border-box; box-shadow:0 -4px 10px rgba(0,0,0,0.5); z-index:100;">
+            <div style="display:flex; gap:6px;">
+              <button onclick="downloadImage('black')" style="background:#111; color:#fff; border:1px solid #444; flex:1; padding:8px;">背景:黒</button>
+              <button onclick="downloadImage('white')" style="background:#eee; color:#111; border:none; flex:1; padding:8px;">背景:白(反転)</button>
+            </div>
+          </div>
+          <button class="btn-img" onclick="document.getElementById('imgMenu').style.display = document.getElementById('imgMenu').style.display === 'none' ? 'block' : 'none'">画像出力 (PNG)</button>
+        </div>
+        <button class="btn-dxf" onclick="downloadDXF()">DXFファイル出力</button>
+      </div>
+
+    </div>
+    
+    <div class="canvas-area">
+      <!-- テンキー -->
+      <div id="numpad" class="numpad-container">
+        <div class="numpad-header" id="numpadHeader">
+          <span>数値入力</span>
+          <button class="close-btn" onclick="hideNumpad()">×</button>
+        </div>
+        <div class="numpad-grid">
+          <button class="numpad-btn" onclick="inputNumpad('7')">7</button>
+          <button class="numpad-btn" onclick="inputNumpad('8')">8</button>
+          <button class="numpad-btn" onclick="inputNumpad('9')">9</button>
+          <button class="numpad-btn cmd" onclick="inputNumpad('BS')">BS</button>
+          <button class="numpad-btn" onclick="inputNumpad('4')">4</button>
+          <button class="numpad-btn" onclick="inputNumpad('5')">5</button>
+          <button class="numpad-btn" onclick="inputNumpad('6')">6</button>
+          <button class="numpad-btn cmd" onclick="inputNumpad('C')">C</button>
+          <button class="numpad-btn" onclick="inputNumpad('1')">1</button>
+          <button class="numpad-btn" onclick="inputNumpad('2')">2</button>
+          <button class="numpad-btn" onclick="inputNumpad('3')">3</button>
+          <button class="numpad-btn cmd" onclick="inputNumpad('.')">.</button>
+          <button class="numpad-btn" style="grid-column: span 2;" onclick="inputNumpad('0')">0</button>
+          <button class="numpad-btn enter" style="grid-column: span 2;" onclick="hideNumpad()">決定</button>
+        </div>
+      </div>
+      
+      <!-- 長押しコンテキストメニュー -->
+      <div id="contextMenu" class="context-menu">
+        <button id="ctx-btn-dim" onclick="ctxActionDeleteDim()">📏 寸法線を消す</button>
+        <button id="ctx-btn-road" class="danger" onclick="ctxActionDeleteRoad()">🗑 道路を消す</button>
+      </div>
+
+      <button class="silhouette-toggle" id="silToggleBtn" onclick="toggleSilhouette()">形状プレビューを隠す</button>
+      <div class="silhouette-box" id="silhouetteBox">
+        <svg id="silSvg" viewBox="0 0 800 400">
+          <defs>
+            <marker id="arr-start" markerWidth="6" markerHeight="6" refX="0" refY="3" orient="auto"><path d="M 6 0 L 0 3 L 6 6 Z" fill="#00aaff" /></marker>
+            <marker id="arr-end" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M 0 0 L 6 3 L 0 6 Z" fill="#00aaff" /></marker>
+            <marker id="arr-start-purple" markerWidth="6" markerHeight="6" refX="0" refY="3" orient="auto"><path d="M 6 0 L 0 3 L 6 6 Z" fill="#cc66ff" /></marker>
+            <marker id="arr-end-purple" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M 0 0 L 6 3 L 0 6 Z" fill="#cc66ff" /></marker>
+          </defs>
+          <line x1="20" y1="260" x2="780" y2="260" class="ground" />
+          <line id="line-rear" y1="60" y2="390" class="guide-line" />
+          <line id="line-front" y1="60" y2="390" class="guide-line" />
+          <line id="dim-l-line" class="dim-line" marker-start="url(#arr-start)" marker-end="url(#arr-end)" />
+          <text id="dim-l-txt" class="dim-text">L</text>
+          <line id="dim-wb-line" class="dim-line" marker-start="url(#arr-start)" marker-end="url(#arr-end)" />
+          <text id="dim-wb-txt" class="dim-text">WB</text>
+          <line id="dim-foh-line" class="dim-line" marker-start="url(#arr-start)" marker-end="url(#arr-end)" />
+          <text id="dim-foh-txt" class="dim-text">FOH</text>
+          <line id="dim-roh-line" class="dim-line" marker-start="url(#arr-start)" marker-end="url(#arr-end)" />
+          <text id="dim-roh-txt" class="dim-text">ROH</text>
+          <g id="trailer-dims" style="display: none;">
+            <line id="dim-twb-line" class="dim-line" stroke="#cc66ff" marker-start="url(#arr-start-purple)" marker-end="url(#arr-end-purple)" />
+            <text id="dim-twb-txt" class="dim-text" fill="#cc66ff">TWB</text>
+            <line id="dim-troh-line" class="dim-line" stroke="#cc66ff" marker-start="url(#arr-start-purple)" marker-end="url(#arr-end-purple)" />
+            <text id="dim-troh-txt" class="dim-text" fill="#cc66ff">TROH</text>
+          </g>
+          <g id="truck-wrapper" class="truck-group">
+            <circle id="cg-mark" class="cg-marker" r="8" />
+            <path id="cg-cross1" stroke="#000" stroke-width="1.5" />
+            <path id="cg-cross2" stroke="#000" stroke-width="1.5" />
+            <g id="layer-car" style="display: none;">
+              <path id="car-body" class="c-blue" />
+              <circle id="car-tire-r" class="tire" />
+              <circle id="car-tire-f" class="tire" />
+            </g>
+            <g id="layer-truck" style="display: none;">
+              <rect id="truck-bed" class="c-blue" />
+              <path id="truck-cab" class="c-cab" />
+              <circle id="truck-tire-r1" class="tire" />
+              <circle id="truck-tire-r2" class="tire" />
+              <circle id="truck-tire-f" class="tire" />
+            </g>
+            <g id="layer-dump" style="display: none;">
+              <rect id="dump-bed" class="c-green" />
+              <path id="dump-lines" class="c-green" stroke-width="1.5" />
+              <path id="dump-cab" class="c-cab" />
+              <circle id="dump-tire-r1" class="tire" />
+              <circle id="dump-tire-r2" class="tire" />
+              <circle id="dump-tire-f" class="tire" />
+            </g>
+            <g id="layer-mixer" style="display: none;">
+              <rect id="mix-subframe" class="c-purple" />
+              <polygon id="mix-hop" class="c-purple" />
+              <path id="mix-drum" class="c-purple" />
+              <polygon id="mix-shoot" class="c-purple" />
+              <rect id="mix-tank" class="c-purple" />
+              <path id="mix-cab" class="c-cab" />
+              <circle id="mix-tire-r1" class="tire" />
+              <circle id="mix-tire-r2" class="tire" />
+              <circle id="mix-tire-f" class="tire" />
+            </g>
+            <g id="layer-tractor" style="display: none;">
+              <rect id="trac-trailer-bed" class="c-purple" style="display:none;" />
+              <circle id="trac-trailer-tire1" class="tire" style="display:none;" />
+              <circle id="trac-trailer-tire2" class="tire" style="display:none;" />
+              <rect id="trac-frame" class="c-blue" />
+              <circle id="trac-coupler" class="joint" r="6" />
+              <path id="trac-cab" class="c-cab" />
+              <circle id="trac-tire-r" class="tire" />
+              <circle id="trac-tire-f" class="tire" />
+            </g>
+            <g id="layer-roughter" style="display: none;">
+              <path id="rg-body" class="c-yellow" />
+              <path id="rg-cab" class="c-cab" />
+              <polygon id="rg-boom" fill="rgba(255,200,0,0.3)" stroke="#ffcc00" stroke-width="2" />
+              <circle id="rg-tire-r" class="tire-lg" />
+              <circle id="rg-tire-f" class="tire-lg" />
+            </g>
+          </g>
+        </svg>
+        <div id="sil-alert-msg" class="alert-box"></div>
+      </div>
+      
+      <div class="canvas-wrap">
+        <canvas id="canvas" width="800" height="800"></canvas>
+      </div>
+      
+      <div class="note" style="text-align:center; flex-shrink:0; line-height: 1.8;">
+        <span style="display:inline-block; padding:2px 6px; background:#222; border-radius:4px; margin:2px;"><span class="legend-icon-rect" style="background:#00ffaa;"></span>開始位置</span>
+        <span style="display:inline-block; padding:2px 6px; background:#222; border-radius:4px; margin:2px;"><span class="legend-icon-rect" style="background:#ff8800;"></span>終了位置</span>
+        <span style="display:inline-block; padding:2px 6px; background:#222; border-radius:4px; margin:2px;"><span class="legend-icon-rect" style="background:#ffcc00;"></span>途中経過</span>
+        <span style="display:inline-block; padding:2px 6px; background:#222; border-radius:4px; margin:2px;"><span class="legend-icon-fwd"></span>前進</span>
+        <span style="display:inline-block; padding:2px 6px; background:#222; border-radius:4px; margin:2px;"><span class="legend-icon-rev"></span>後退</span>
+        <br>
+        実線+ <span class="legend-line-solid" style="background:#00ffff;"></span> = 牽引車　
+        点線+ <span class="legend-line-dash" style="border-color:#ff66cc;"></span> = トレーラー　
+        <span class="legend-line-solid" style="background:#ffffff;"></span> = 道路　
+        <span class="legend-line-solid" style="background:#ffcc00;"></span> = 寸法線
+      </div>
+      
+      <div class="result-box sim-only" id="resultBox">ステップを設定して「描画更新」を押してください</div>
+    </div>
+  </div>
+  <script>
+    // 状態とエンジン
+    let dxfLines = [];
+    let stepIdCounter = 0;
+    let simSnapshots = [];
+    let simTrailerSnapshots = [];
+    let simPathPoints = [[], [], [], []];
+    let simTrailerPathPoints = [[], [], [], []];
+    let simDirMeta = []; 
+    let roads = []; 
+    let opMode = 'sim';
+    let isDragging = false;       
+    let isDraggingRoad = false;   
+    let isDraggingDim = false;    
+    let draggedRoadIndex = -1;
+    let hoveredTarget = null;     
+    let dragStartG = null;
+    let dragCurrentG = null;
+    let lastDragG = null;         
+    let viewScale = 1;
+    let viewCx = 0;
+    let viewCy = 0;
+    let resultHtml = 'ステップを設定して「描画更新」を押してください';
+    let currentMinR = 0;
+    let currentMinTR = 0;
+    let cgError = false;
+    let isDirty = false;
+    
+    // テンキー
+    let activeInput = null;
+    let isDraggingNumpad = false;
+    let numpadDragStart = {x: 0, y: 0};
+    let numpadInitialPos = {x: 0, y: 0};
+    
+    // 長押しコンテキストメニュー用
+    let touchStartX = 0, touchStartY = 0;
+    let longPressTimer = null;
+    let contextTarget = null;
+    const LONG_PRESS_DELAY = 500;
+
+    function toggleSilhouette(){
+      const box = document.getElementById('silhouetteBox');
+      const btn = document.getElementById('silToggleBtn');
+      if (box.style.display === 'none'){
+        box.style.display = '';
+        btn.textContent = '形状プレビューを隠す';
+      } else {
+        box.style.display = 'none';
+        btn.textContent = '形状プレビューを表示';
+      }
+    }
+
+    // 通知制御
+    let toastTimer = null;
+    function showToast(msg, duration = 0) {
+      const toast = document.getElementById('toast');
+      toast.innerHTML = msg;
+      toast.classList.add('show');
+      if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+      if (duration > 0) {
+        toastTimer = setTimeout(hideToast, duration);
+      }
+    }
+    function hideToast() {
+      document.getElementById('toast').classList.remove('show');
+    }
+    function setButtonsEnabled(enabled) {
+      document.querySelectorAll('.btn-draw, .btn-dxf, .btn-img').forEach(btn => btn.disabled = !enabled);
+    }
+    function validateInputs() {
+      if (opMode === 'road') {
+        setButtonsEnabled(true);
+        hideToast();
+        return;
+      }
+      const R = Number(document.getElementById('R').value);
+      const TR = Number(document.getElementById('TR').value);
+      const WB = Number(document.getElementById('WB').value);
+      const steerModeEl = document.getElementById('steerMode');
+      const steerMode = steerModeEl ? steerModeEl.value : '2ws';
+      const isTractor = currentSvgType === 'tractor';
+      let twb = 0, troh = 0;
+      if (isTractor) {
+        twb = Number(document.getElementById('trailerWB').value);
+        troh = Number(document.getElementById('trailerROH').value);
+      }
+      let errMsg = null;
+      // 4WSは車体中心=WB/2基準
+      const effWB = (steerMode === '4ws') ? WB / 2 : WB;
+      const rcCheck = Math.sqrt(Math.max(0, R * R - effWB * effWB)) - TR / 2;
+
+      if (cgError) errMsg = "重心エラー：車両寸法（L, WB, FOH）が破綻しています。修正してください。";
+      else if (isTractor && twb < 1000) errMsg = "荷台設定エラー：TWB（軸中心までの距離）は1000mm以上に設定してください。";
+      else if (isTractor && troh < 0) errMsg = "荷台設定エラー：TROH（後端オーバーハング）は0以上に設定してください。";
+      else if (isTractor && troh > twb * 1.2) errMsg = "荷台設定エラー：TROHが長すぎます。重心が破綻し、転倒の危険があります。";
+      else if (R <= effWB) errMsg = `旋回性能エラー：R(${R})がホイールベース基準値(${effWB.toFixed(0)}${steerMode === '4ws' ? '=WB/2' : '=WB'})以下です。寸法を見直してください。`;
+      else if (rcCheck <= 0) errMsg = "旋回性能エラー：この寸法の組み合わせでは理論上その場旋回できません。R・WB・TRを見直してください。";
+      else if (R < currentMinR) errMsg = `旋回性能エラー：最小回転半径(R)は ${currentMinR} 以上に設定してください。`;
+      else if (TR < currentMinTR) errMsg = `旋回性能エラー：トレッド幅(TR)は ${currentMinTR} 以上に設定してください。`;
+
+      if (errMsg) {
+        setButtonsEnabled(false);
+        showToast(errMsg);
+      } else {
+        setButtonsEnabled(true);
+        hideToast(); 
+      }
+    }
+    function markAsChanged() {
+      if (opMode !== 'sim' || document.querySelector('.btn-draw').disabled) return;
+      isDirty = true;
+      document.getElementById('resultBox').innerHTML = '<span style="color:#ffcc00; font-weight:bold;">⚠ 値が変更されました。描画更新（軌跡再計算）ボタンを押してください。</span>';
+    }
+    
+    // テンキー処理
+    function showNumpad(inputEl) {
+      if (activeInput && activeInput !== inputEl) {
+        if (activeInput.value.toString().endsWith('.')) activeInput.value = activeInput.value.toString().slice(0, -1);
+      }
+      activeInput = inputEl;
+      document.getElementById('numpad').style.display = 'flex';
+    }
+    function hideNumpad() {
+      document.getElementById('numpad').style.display = 'none';
+      if (activeInput) {
+        if (activeInput.value.toString().endsWith('.')) activeInput.value = activeInput.value.toString().slice(0, -1);
+        activeInput = null;
+      }
+    }
+    function inputNumpad(key) {
+      if (!activeInput) return;
+      let val = activeInput.value.toString();
+      if (key === 'C') val = '';
+      else if (key === 'BS') val = val.slice(0, -1);
+      else val += key;
+      activeInput.value = val;
+      activeInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    function initNumpadDrag() {
+      const header = document.getElementById('numpadHeader');
+      const np = document.getElementById('numpad');
+      header.addEventListener('pointerdown', (e) => {
+        isDraggingNumpad = true;
+        numpadInitialPos = { x: np.offsetLeft, y: np.offsetTop };
+        numpadDragStart = { x: e.clientX, y: e.clientY };
+        e.preventDefault();
+      });
+      window.addEventListener('pointermove', (e) => {
+        if (!isDraggingNumpad) return;
+        np.style.left = (numpadInitialPos.x + e.clientX - numpadDragStart.x) + 'px';
+        np.style.top = (numpadInitialPos.y + e.clientY - numpadDragStart.y) + 'px';
+        np.style.bottom = 'auto'; 
+        np.style.right = 'auto';
+      });
+      window.addEventListener('pointerup', () => isDraggingNumpad = false);
+    }
+    
+    // コンテキストメニュー処理
+    function showContextMenu(x, y, target) {
+      const menu = document.getElementById('contextMenu');
+      contextTarget = target;
+      const btnDim = document.getElementById('ctx-btn-dim');
+      if (roads[target.index].dim) btnDim.style.display = 'block';
+      else btnDim.style.display = 'none';
+      
+      menu.style.display = 'flex';
+      const rect = menu.getBoundingClientRect();
+      let posX = x, posY = y;
+      if (posX + rect.width > window.innerWidth) posX = window.innerWidth - rect.width - 10;
+      if (posY + rect.height > window.innerHeight) posY = window.innerHeight - rect.height - 10;
+      menu.style.left = posX + 'px';
+      menu.style.top = posY + 'px';
+    }
+    function hideContextMenu() {
+      document.getElementById('contextMenu').style.display = 'none';
+      contextTarget = null;
+    }
+    function ctxActionDeleteDim() {
+      if (contextTarget) {
+        roads[contextTarget.index].dim = null;
+        hoveredTarget = null;
+        document.getElementById('canvas').style.cursor = 'crosshair';
+        redraw();
+      }
+      hideContextMenu();
+    }
+    function ctxActionDeleteRoad() {
+      if (contextTarget) {
+        roads.splice(contextTarget.index, 1);
+        hoveredTarget = null;
+        document.getElementById('canvas').style.cursor = 'crosshair';
+        updateViewBox();
+        redraw();
+      }
+      hideContextMenu();
+    }
+
+    // モード切替
+    function onModeChange() {
+      opMode = document.querySelector('input[name="opMode"]:checked').value;
+      document.querySelectorAll('.sim-only').forEach(el => {
+        if (el.id === 'trailerSectionWrap') return; 
+        el.style.display = (opMode === 'sim') ? 'block' : 'none';
+      });
+      document.querySelectorAll('.road-only').forEach(el => el.style.display = (opMode === 'road') ? 'block' : 'none');
+      document.getElementById('tab-sim').classList.toggle('active', opMode === 'sim');
+      document.getElementById('tab-road').classList.toggle('active', opMode === 'road');
+      
+      const silBox = document.getElementById('silhouetteBox');
+      const silBtn = document.getElementById('silToggleBtn');
+      const canvas = document.getElementById('canvas');
+      if (opMode === 'road') {
+        silBox.style.display = 'none';
+        silBtn.style.display = 'none';
+        canvas.style.cursor = 'crosshair';
+        hideContextMenu();
+      } else {
+        silBox.style.display = '';
+        silBtn.style.display = '';
+        silBtn.textContent = '形状プレビューを隠す';
+        canvas.style.cursor = 'default';
+        hoveredTarget = null;
+        redraw();
+      }
+      const isTractor = currentSvgType === 'tractor';
+      document.getElementById('trailerSectionWrap').style.display = (opMode === 'sim' && isTractor) ? 'block' : 'none';
+      validateInputs();
+    }
+    
+    // 車両データ
+    const TRAILER_PRESETS = [
+      {name: "20ftコンテナ用セミトレーラー(2軸)", hitchOffset: 300, TW: 2490, TWB: 6200, TROH: 900},
+      {name: "40ftコンテナ用セミトレーラー(2軸)", hitchOffset: 300, TW: 2490, TWB: 10400, TROH: 1000},
+      {name: "一般セミトレーラー 平ボディ/ウイング(3軸)", hitchOffset: 300, TW: 2490, TWB: 9000, TROH: 1500},
+      {name: "タンクセミトレーラー", hitchOffset: 300, TW: 2490, TWB: 8000, TROH: 1300},
+      {name: "重機運搬車 低床セミトレーラー(特車/全幅2990)", hitchOffset: 300, TW: 2990, TWB: 7000, TROH: 2200},
+      {name: "車両運搬用キャリアカー セミトレーラー", hitchOffset: 300, TW: 2490, TWB: 9500, TROH: 1800},
+      {name: "ポールトレーラー(伸縮式・長尺物用)", hitchOffset: 300, TW: 2490, TWB: 11000, TROH: 1000},
+      {name: "4t車用 小型2軸フルトレーラー", hitchOffset: -2000, TW: 2100, TWB: 3200, TROH: 800},
+      {name: "2軸フルトレーラー(建設資材/砕石運搬用)", hitchOffset: -2500, TW: 2350, TWB: 4000, TROH: 1000},
+      {name: "大型フルトレーラー(重ダンプ用/3軸)", hitchOffset: -2800, TW: 2490, TWB: 5500, TROH: 1300},
+      {name: "カスタム(手入力)", hitchOffset: 0, TW: 2490, TWB: 9000, TROH: 1500}
+    ];
+    const VEHICLE_PRESETS = [
+      {name: "大型乗用車 (ミニバン/ワンボックス)", type: "car", L: 4995, W: 1850, WB: 3000, FOH: 955, R: 5900, TR: 1600, short: "Car"},
+      {name: "2tトラック/ダンプ(小型)", type: "truck", L: 4690, W: 1695, WB: 2490, FOH: 900, R: 4800, TR: 1400, short: "2t"},
+      {name: "4tダンプ(中型)", type: "dump", L: 5420, W: 2190, WB: 2880, FOH: 1150, R: 5400, TR: 1450, short: "4tD"},
+      {name: "4tミキサー車", type: "mixer", L: 6210, W: 2190, WB: 3300, FOH: 1150, R: 6000, TR: 1500, short: "4tMix"},
+      {name: "4tトラック(中型・標準)", type: "truck", L: 6900, W: 2190, WB: 4360, FOH: 1150, R: 7300, TR: 1650, short: "4t"},
+      {name: "4tロング(中型・長尺)", type: "truck", L: 8200, W: 2190, WB: 4860, FOH: 1250, R: 7800, TR: 1650, short: "4tL"},
+      {name: "7tダンプ(増トン)", type: "dump", L: 5800, W: 2350, WB: 3200, FOH: 1200, R: 5900, TR: 1500, short: "7tD"},
+      {name: "7tミキサー車(増トン)", type: "mixer", L: 6270, W: 2350, WB: 3400, FOH: 1200, R: 6200, TR: 1500, short: "7tMix"},
+      {name: "8tロング(増トン・長尺)", type: "truck", L: 8900, W: 2350, WB: 5200, FOH: 1300, R: 8500, TR: 1800, short: "8tL"},
+      {name: "10tダンプ(大型)", type: "dump", L: 7640, W: 2490, WB: 3850, FOH: 1400, R: 6700, TR: 1600, short: "10tD"},
+      {name: "10tミキサー車(大型)", type: "mixer", L: 7930, W: 2490, WB: 4500, FOH: 1400, R: 7400, TR: 1600, short: "10tMix"},
+      {name: "10tトラック(大型・長尺)", type: "truck", L: 11990, W: 2490, WB: 7000, FOH: 1400, R: 9800, TR: 2000, short: "10t"},
+      {name: "トレーラー(牽引車)", type: "tractor", L: 5620, W: 2490, WB: 3200, FOH: 1200, R: 6800, TR: 1850, isTractorHead: true, short: "Trailer"},
+      {name: "25tラフテレーンクレーン", type: "roughter", L: 11530, W: 2620, WB: 3880, FOH: 5550, R: 8500, TR: 2170, R4ws: 5100, short: "25tRC"},
+      {name: "カスタム(手入力)", type: "truck", L: 4995, W: 1850, WB: 3000, FOH: 955, R: 5900, TR: 1600, short: "Custom"}
+    ];
+    let currentSvgType = 'truck';
+    let cgRatio = 0.5;
+
+    function getExportFilename(ext) {
+      const idx = Number(document.getElementById('vehiclePreset').value) || 0;
+      const shortName = VEHICLE_PRESETS[idx].short || "Custom";
+      const now = new Date();
+      const yy = String(now.getFullYear()).slice(-2);
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      const hh = String(now.getHours()).padStart(2, '0');
+      const min = String(now.getMinutes()).padStart(2, '0');
+      return `${yy}${mm}${dd}_${hh}${min}_${shortName}.${ext}`;
+    }
+
+    function onInputVehicle() {
+      renderSilhouette();
+      markAsChanged();
+    }
+    function initTrailerPresets(){
+      const sel = document.getElementById('trailerPreset');
+      TRAILER_PRESETS.forEach((p, i) => {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = p.name;
+        sel.appendChild(opt);
+      });
+      applyTrailerPreset();
+    }
+    function applyTrailerPreset(){
+      const idx = Number(document.getElementById('trailerPreset').value) || 0;
+      const p = TRAILER_PRESETS[idx];
+      document.getElementById('hitchOffset').value = p.hitchOffset;
+      document.getElementById('trailerW').value = p.TW;
+      document.getElementById('trailerWB').value = p.TWB;
+      document.getElementById('trailerROH').value = p.TROH;
+      renderSilhouette();
+      markAsChanged();
+    }
+    function initVehiclePresets(){
+      const sel = document.getElementById('vehiclePreset');
+      VEHICLE_PRESETS.forEach((p, i) => {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = p.name;
+        sel.appendChild(opt);
+      });
+      applyVehiclePreset();
+    }
+    function applyVehiclePreset(){
+      const idx = Number(document.getElementById('vehiclePreset').value) || 0;
+      const p = VEHICLE_PRESETS[idx];
+      document.getElementById('L').value = p.L;
+      document.getElementById('W').value = p.W;
+      document.getElementById('WB').value = p.WB;
+      document.getElementById('FOH').value = p.FOH;
+      
+      currentMinR = p.R;
+      currentMinTR = p.TR;
+      const steerModeGroup = document.getElementById('steerModeGroup');
+      if (p.type === 'roughter') {
+        steerModeGroup.style.display = 'flex';
+        document.getElementById('R').value = (document.getElementById('steerMode').value === '4ws' && p.R4ws) ? p.R4ws : p.R;
+      } else {
+        steerModeGroup.style.display = 'none';
+        document.getElementById('steerModeNote').style.display = 'none';
+        document.getElementById('steerMode').value = '2ws';
+        document.getElementById('R').value = p.R;
+      }
+      document.getElementById('TR').value = p.TR;
+      currentSvgType = p.type || 'truck';
+      let defL = p.L; let defWB = p.WB; let defFOH = p.FOH;
+      let defROH = defL - defWB - defFOH;
+      cgRatio = (defROH + defWB / 2) / defL; 
+
+      const isTractor = currentSvgType === 'tractor';
+      document.getElementById('trailerSectionWrap').style.display = (opMode === 'sim' && isTractor) ? 'block' : 'none';
+      ['car', 'truck', 'dump', 'mixer', 'tractor', 'roughter'].forEach(type => {
+        const el = document.getElementById('layer-' + type);
+        if(el) el.style.display = (type === currentSvgType) ? 'inline' : 'none';
+      });
+      document.querySelectorAll('.step-row .s-steer').forEach(sel => updateStepRowUI(sel));
+      renderSilhouette();
+      markAsChanged();
+    }
+    function onSteerModeChange(){
+      const mode = document.getElementById('steerMode').value;
+      document.getElementById('steerModeNote').style.display = (mode === '4ws') ? '' : 'none';
+      const idx = Number(document.getElementById('vehiclePreset').value) || 0;
+      const p = VEHICLE_PRESETS[idx];
+      if (p && p.R4ws){
+        document.getElementById('R').value = (mode === '4ws') ? p.R4ws : p.R;
+        currentMinR = (mode === '4ws') ? p.R4ws : p.R;
+      }
+      validateInputs();
+      markAsChanged();
+    }
+    function addStep(dir='forward', steer='right', value=90){
+      stepIdCounter++;
+      const row = document.createElement('div');
+      row.className = 'step-row';
+      row.dataset.id = stepIdCounter;
+      row.innerHTML = `
+        <div style="display: flex; flex-wrap: nowrap; align-items: center; gap: 4px; width: 100%;">
+          <span class="step-num" style="flex-shrink:0;"></span>
+          <select class="s-dir" onchange="updateStepRowUI(this)" style="flex: 1 1 auto; min-width: 0; padding: 3px; font-size: 0.75rem;">
+            <option value="forward" ${dir==='forward'?'selected':''}>前進</option>
+            <option value="reverse" ${dir==='reverse'?'selected':''}>後退</option>
+          </select>
+          <select class="s-steer" onchange="updateStepRowUI(this)" style="flex: 1 1 auto; min-width: 0; padding: 3px; font-size: 0.75rem;">
+            <option value="right" ${steer==='right'?'selected':''}>右旋回</option>
+            <option value="left" ${steer==='left'?'selected':''}>左旋回</option>
+            <option value="straight" ${steer==='straight'?'selected':''}>直進</option>
+          </select>
+          <input type="number" class="s-val" data-is-num="true" value="${value}" inputmode="none" style="flex: 0 0 50px; width: 50px; font-size: 0.8rem; padding: 3px;">
+          <span class="step-unit" style="flex-shrink:0; font-size:0.75rem;">度</span>
+          <button class="btn-remove" onclick="removeStep(this)" style="flex-shrink:0; width: 22px; height: 22px; padding: 0; line-height: 20px; text-align: center; background: #7a2020; color: #fff; border-radius: 50%; font-size: 0.85rem; border: none; cursor: pointer;">×</button>
+        </div>
+        <div class="feedback-opt" style="display:none; width:100%; margin-top:4px; padding-top:4px; border-top:1px dashed #444;">
+          <label style="font-size:0.78rem; color:#7fd3ff; display:flex; align-items:center; gap:5px; cursor:pointer;">
+            <input type="checkbox" class="cb-feedback" style="width:auto;" onchange="updateStepRowUI(this)" checked>
+            🎯 フィードバック制御(連結角を上限以下に抑えて後退)
+          </label>
+          <div class="fb-detail" style="font-size:0.75rem; color:#aaa; margin-top:3px;">
+            値の意味が「トラクタの旋回角度」→「<b>トレーラー(荷台)の目標回転角度</b>」に変わります。<br>
+            目標連結角(安全マージン): <input type="number" class="s-psimax" data-is-num="true" value="40" inputmode="none" style="width:44px; flex:0 0 44px;">度
+          </div>
+        </div>
+      `;
+      document.getElementById('stepsList').appendChild(row);
+      updateStepRowUI(row.querySelector('.s-steer'));
+      renumberSteps();
+      markAsChanged();
+    }
+    function updateStepRowUI(el){
+      const row = el.closest('.step-row');
+      const dir = row.querySelector('.s-dir').value;
+      const steer = row.querySelector('.s-steer').value;
+      const unitSpan = row.querySelector('.step-unit');
+      const valInput = row.querySelector('.s-val');
+      const fbOpt = row.querySelector('.feedback-opt');
+      
+      const wasStraight = unitSpan.textContent === 'm';
+      if (steer === 'straight'){
+        unitSpan.textContent = 'm';
+        if (!wasStraight) valInput.value = 5;
+      } else {
+        unitSpan.textContent = '度';
+        if (wasStraight) valInput.value = 90;
+      }
+      const isTractor = currentSvgType === 'tractor';
+      fbOpt.style.display = (isTractor && dir === 'reverse' && steer !== 'straight') ? 'block' : 'none';
+      row.querySelector('.fb-detail').style.display = row.querySelector('.cb-feedback').checked ? 'block' : 'none';
+    }
+    function removeStep(btn){
+      const rows = document.querySelectorAll('.step-row');
+      if (rows.length <= 1) { showToast("ステップは最低1つ必要です。"); return; }
+      btn.closest('.step-row').remove();
+      renumberSteps();
+      markAsChanged();
+    }
+    function renumberSteps(){
+      const rows = document.querySelectorAll('.step-row');
+      rows.forEach((row, i) => { 
+        row.querySelector('.step-num').textContent = (i+1) + '.'; 
+        row.querySelector('.btn-remove').disabled = (rows.length === 1);
+      });
+    }
+    function readSteps(){
+      const steps = [];
+      document.querySelectorAll('.step-row').forEach(row => {
+        const fbOpt = row.querySelector('.feedback-opt');
+        steps.push({
+          dir: row.querySelector('.s-dir').value,
+          steer: row.querySelector('.s-steer').value,
+          value: Number(row.querySelector('.s-val').value) || 0,
+          feedback: fbOpt.style.display !== 'none' && row.querySelector('.cb-feedback').checked,
+          psiMax: Number(row.querySelector('.s-psimax').value) || 40
+        });
+      });
+      return steps;
+    }
+    function updateSVGTextWithTooltip(id, label, value, tooltipMsg) {
+      const el = document.getElementById(id);
+      if(el) {
+        el.textContent = `${label}=${Math.round(value)}`;
+        const t = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+        t.textContent = tooltipMsg;
+        el.appendChild(t);
+      }
+    }
+    function setGeom(id, attrs) {
+      const el = document.getElementById(id);
+      if(el) for(let k in attrs) el.setAttribute(k, attrs[k]);
+    }
+    function renderSilhouette(){
+      let L = parseFloat(document.getElementById('L').value) || 1;
+      let WB = parseFloat(document.getElementById('WB').value) || 0;
+      let FOH = parseFloat(document.getElementById('FOH').value) || 0;
+      if (WB + FOH > L) { WB = L - FOH; if (WB < 0) { WB = 0; FOH = L; } }
+      let ROH = L - WB - FOH;
+
+      let drawL = L;
+      const isTractor = currentSvgType === 'tractor';
+      let tWB = 0, tROH = 0, hOffset = 0;
+      if (isTractor) {
+        hOffset = parseFloat(document.getElementById('hitchOffset').value) || 0;
+        tWB = parseFloat(document.getElementById('trailerWB').value) || 1;
+        tROH = parseFloat(document.getElementById('trailerROH').value) || 0;
+        const trailerLenBack = -hOffset + tWB + tROH;
+        if (trailerLenBack > ROH) drawL = L + (trailerLenBack - ROH);
+      }
+      const CG_pos = L * cgRatio; 
+      const alertBox = document.getElementById('sil-alert-msg');
+      const wrapper = document.getElementById('truck-wrapper');
+      if(!wrapper) return;
+      wrapper.className.baseVal = "truck-group"; 
+
+      if (CG_pos < ROH) {
+        alertBox.innerHTML = "⚠ 危険！重心が後輪を越えました。<br>尻餅をついて転倒します！";
+        alertBox.classList.add('show');
+        wrapper.classList.add('tilt-rear');
+        cgError = true;
+      } else if (CG_pos > ROH + WB) {
+        alertBox.innerHTML = "⚠ 危険！重心が前輪を越えました。<br>前のめりに転倒します！";
+        alertBox.classList.add('show');
+        wrapper.classList.add('tilt-front');
+        cgError = true;
+      } else {
+        alertBox.classList.remove('show');
+        wrapper.classList.remove('tilt-rear', 'tilt-front');
+        cgError = false;
+      }
+      validateInputs();
+
+      const DRAW_W = 600;
+      const scale = DRAW_W / drawL;
+      const frontX = 100 + DRAW_W;
+      const tireFX = frontX - (FOH * scale);
+      const tireRX = tireFX - (WB * scale);
+      const rearX = tireRX - (ROH * scale); 
+
+      setGeom('trac-trailer-bed', { style: 'display: none;' });
+      setGeom('trac-trailer-tire1', { style: 'display: none;' });
+      setGeom('trac-trailer-tire2', { style: 'display: none;' });
+      setGeom('trailer-dims', { style: 'display: none;' });
+      setGeom('line-rear', { x1: rearX, x2: rearX });
+      setGeom('line-front', { x1: frontX, x2: frontX });
+      setGeom('dim-l-line', { x1: rearX, x2: frontX, y1: 80, y2: 80 });
+      setGeom('dim-l-txt', { x: (rearX + frontX) / 2, y: 70 });
+      updateSVGTextWithTooltip('dim-l-txt', 'L', L, '全長 (L)');
+      setGeom('dim-wb-line', { x1: tireRX, x2: tireFX, y1: 280, y2: 280 });
+      setGeom('dim-wb-txt', { x: (tireRX + tireFX) / 2, y: 275 });
+      updateSVGTextWithTooltip('dim-wb-txt', 'WB', WB, 'ホイールベース (WB)');
+      setGeom('dim-foh-line', { x1: tireFX, x2: frontX, y1: 310, y2: 310 });
+      setGeom('dim-foh-txt', { x: (tireFX + frontX) / 2, y: 305 });
+      updateSVGTextWithTooltip('dim-foh-txt', 'FOH', FOH, 'フロントオーバーハング (FOH)');
+      setGeom('dim-roh-line', { x1: rearX, x2: tireRX, y1: 310, y2: 310 });
+      setGeom('dim-roh-txt', { x: (rearX + tireRX) / 2, y: 305 });
+      updateSVGTextWithTooltip('dim-roh-txt', 'ROH', ROH, '後端オーバーハング (ROH)');
+
+      const cgX = rearX + (CG_pos * scale);
+      setGeom('cg-mark', { cx: cgX, cy: 170 });
+      setGeom('cg-cross1', { d: `M ${cgX-8},170 L ${cgX+8},170` });
+      setGeom('cg-cross2', { d: `M ${cgX},162 L ${cgX},178` });
+      wrapper.style.transformOrigin = (CG_pos < ROH) ? `${tireRX}px 235px` : `${tireFX}px 235px`;
+
+      const cabBaseX = Math.max(tireRX + (300*scale), frontX - (1800*scale)); 
+      const isTandem = L > 6500; 
+      const tOffset = isTandem ? 25 : 0;
+
+      switch(currentSvgType) {
+        case 'car':
+          setGeom('car-body', { d: `M ${rearX},210 L ${rearX},120 L ${rearX+400*scale},80 L ${frontX-1200*scale},80 L ${frontX-300*scale},130 L ${frontX},140 L ${frontX},210 Z` });
+          setGeom('car-tire-r', { cx: tireRX, cy: 235, r: 25 });
+          setGeom('car-tire-f', { cx: tireFX, cy: 235, r: 25 });
+          break;
+        case 'truck':
+          setGeom('truck-bed', { x: rearX, y: 100, width: cabBaseX - rearX, height: 110 });
+          setGeom('truck-cab', { d: `M ${cabBaseX},210 L ${cabBaseX},80 L ${frontX-400*scale},80 L ${frontX-100*scale},120 L ${frontX},120 L ${frontX},210 Z` });
+          setGeom('truck-tire-r1', { cx: tireRX - tOffset, cy: 235, r: 25 });
+          setGeom('truck-tire-r2', { cx: tireRX + tOffset, cy: 235, r: 25 });
+          if(!isTandem) setGeom('truck-tire-r2', { cx: tireRX, cy: 235, r: 25 }); 
+          setGeom('truck-tire-f', { cx: tireFX, cy: 235, r: 25 });
+          break;
+        case 'dump':
+          setGeom('dump-bed', { x: rearX, y: 140, width: cabBaseX - rearX, height: 70 });
+          setGeom('dump-lines', { d: `M ${rearX+(cabBaseX-rearX)*0.33},140 L ${rearX+(cabBaseX-rearX)*0.33},210 M ${rearX+(cabBaseX-rearX)*0.66},140 L ${rearX+(cabBaseX-rearX)*0.66},210` });
+          setGeom('dump-cab', { d: `M ${cabBaseX},210 L ${cabBaseX},80 L ${frontX-400*scale},80 L ${frontX-100*scale},120 L ${frontX},120 L ${frontX},210 Z` });
+          setGeom('dump-tire-r1', { cx: tireRX - tOffset, cy: 235, r: 25 });
+          setGeom('dump-tire-r2', { cx: tireRX + tOffset, cy: 235, r: 25 });
+          if(!isTandem) setGeom('dump-tire-r2', { cx: tireRX, cy: 235, r: 25 });
+          setGeom('dump-tire-f', { cx: tireFX, cy: 235, r: 25 });
+          break;
+        case 'mixer':
+          setGeom('mix-subframe', { x: rearX, y: 190, width: cabBaseX - rearX, height: 20 });
+          const mx = (t) => rearX + (cabBaseX - rearX) * t;
+          setGeom('mix-hop', { points: `${mx(0)},60 ${mx(0.15)},60 ${mx(0.1)},100 ${mx(0)},90` });
+          setGeom('mix-drum', { d: `M ${mx(0.1)},120 Q ${mx(0.1)},160 ${mx(0.25)},160 L ${mx(0.9)},165 Q ${mx(1.0)},165 ${mx(1.0)},130 L ${mx(0.95)},90 Q ${mx(0.9)},70 ${mx(0.8)},70 L ${mx(0.3)},60 Q ${mx(0.1)},55 ${mx(0.1)},100 Z` });
+          setGeom('mix-shoot', { points: `${mx(0)-10},100 ${mx(0)+20},100 ${mx(0)+10},150 ${mx(0)-40},170 ${mx(0)-40},150` });
+          setGeom('mix-tank', { x: mx(0.92), width: mx(1.0)-mx(0.92), y: 130, height: 50, rx: 5 });
+          setGeom('mix-cab', { d: `M ${cabBaseX},210 L ${cabBaseX},80 L ${frontX-400*scale},80 L ${frontX-100*scale},120 L ${frontX},120 L ${frontX},210 Z` });
+          setGeom('mix-tire-r1', { cx: tireRX - tOffset, cy: 235, r: 25 });
+          setGeom('mix-tire-r2', { cx: tireRX + tOffset, cy: 235, r: 25 });
+          if(!isTandem) setGeom('mix-tire-r2', { cx: tireRX, cy: 235, r: 25 });
+          setGeom('mix-tire-f', { cx: tireFX, cy: 235, r: 25 });
+          break;
+        case 'tractor':
+          setGeom('trac-frame', { x: rearX, y: 190, width: cabBaseX - rearX, height: 20 });
+          setGeom('trac-coupler', { cx: tireRX + (hOffset*scale), cy: 185 });
+          setGeom('trac-cab', { d: `M ${cabBaseX},210 L ${cabBaseX},80 L ${frontX-400*scale},80 L ${frontX-100*scale},120 L ${frontX},120 L ${frontX},210 Z` });
+          setGeom('trac-tire-r', { cx: tireRX, cy: 235, r: 25 });
+          setGeom('trac-tire-f', { cx: tireFX, cy: 235, r: 25 });
+          if (isTractor) {
+            const hitchX = tireRX + (hOffset * scale);
+            const tAxleX = hitchX - (tWB * scale);
+            const tRearX = tAxleX - (tROH * scale);
+            setGeom('trac-trailer-bed', { x: tRearX, y: 70, width: hitchX - tRearX + 20, height: 110, style: 'display: block;' });
+            setGeom('trac-trailer-tire1', { cx: tAxleX - 20, cy: 235, r: 25, style: 'display: block;' });
+            setGeom('trac-trailer-tire2', { cx: tAxleX + 20, cy: 235, r: 25, style: 'display: block;' });
+            setGeom('trailer-dims', { style: 'display: block;' });
+            setGeom('dim-twb-line', { x1: tAxleX, y1: 340, x2: hitchX, y2: 340 });
+            setGeom('dim-twb-txt', { x: (tAxleX + hitchX) / 2, y: 335 });
+            updateSVGTextWithTooltip('dim-twb-txt', 'TWB', tWB, '連結点〜トレーラー軸中心 (TWB)');
+            setGeom('dim-troh-line', { x1: tRearX, y1: 370, x2: tAxleX, y2: 370 });
+            setGeom('dim-troh-txt', { x: (tRearX + tAxleX) / 2, y: 365 });
+            updateSVGTextWithTooltip('dim-troh-txt', 'TROH', tROH, 'トレーラー後端オーバーハング (TROH)');
+          }
+          break;
+        case 'roughter':
+          const cFX = tireFX + Math.min(FOH * scale, 2000 * scale);
+          setGeom('rg-body', { d: `M ${rearX},210 L ${rearX},150 L ${rearX+400*scale},130 L ${cFX-500*scale},130 L ${cFX},160 L ${cFX},210 Z` });
+          setGeom('rg-cab', { d: `M ${tireFX},130 L ${tireFX},60 L ${cFX-200*scale},60 L ${cFX-200*scale},130 Z` });
+          setGeom('rg-boom', { points: `${rearX+200*scale},140 ${frontX},90 ${frontX},50 ${rearX+200*scale},90` });
+          setGeom('rg-tire-r', { cx: tireRX, cy: 225, r: 35 });
+          setGeom('rg-tire-f', { cx: tireFX, cy: 225, r: 35 });
+          wrapper.style.transformOrigin = (CG_pos < ROH) ? `${tireRX}px 225px` : `${tireFX}px 225px`;
+          break;
+      }
+    }
+
+    // 描画・変換
+    function getVehicleParams(){
+      const L = Number(document.getElementById('L').value);
+      const W = Number(document.getElementById('W').value);
+      const WB = Number(document.getElementById('WB').value);
+      const FOH = Number(document.getElementById('FOH').value);
+      const ROH = L - WB - FOH;
+      const R = Number(document.getElementById('R').value);
+      const TR = Number(document.getElementById('TR').value);
+      return {L, W, WB, FOH, ROH, R, TR};
+    }
+    function getBaseCorners(WB, FOH, ROH, W){
+      return [
+        {x: -W/2, y: WB + FOH}, {x: W/2, y: WB + FOH},
+        {x: W/2, y: -ROH}, {x: -W/2, y: -ROH}
+      ];
+    }
+    function normAngle(a){
+      while (a > Math.PI) a -= 2*Math.PI;
+      while (a < -Math.PI) a += 2*Math.PI;
+      return a;
+    }
+    function rotateLocal(px, py, Cx, Cy, a){
+      const dx = px - Cx, dy = py - Cy;
+      return { x: Cx + dx * Math.cos(a) - dy * Math.sin(a), y: Cy + dx * Math.sin(a) + dy * Math.cos(a) };
+    }
+    function toGlobal(lx, ly, pose){
+      return { x: pose.x + lx * Math.cos(pose.phi) - ly * Math.sin(pose.phi), y: pose.y + lx * Math.sin(pose.phi) + ly * Math.cos(pose.phi) };
+    }
+    function cornersToGlobal(localCorners, pose){
+      return localCorners.map(c => toGlobal(c.x, c.y, pose));
+    }
+
+    function draw(){
+      simDirMeta = []; 
+      const {WB, FOH, ROH, W, L, R, TR} = getVehicleParams();
+      const steerMode = document.getElementById('steerMode').value;
+      const Rc = (steerMode === '4ws') ? Math.sqrt(R*R - (WB/2)*(WB/2)) - TR/2 : Math.sqrt(R*R - WB*WB) - TR/2;
+      
+      if (isNaN(Rc) || Rc <= 0) {
+        resultHtml = '<span class="warn">⚠ 旋回半径(Rc)の計算でエラーが発生しました。車両寸法や旋回設定を見直してください。</span>';
+        document.getElementById('resultBox').innerHTML = resultHtml;
+        return;
+      }
+      
+      const kappaMax = 1 / Rc;
+      const steps = readSteps();
+      
+      if (steps.length === 0){
+        resultHtml = '<span class="warn">⚠ ステップが1つもありません。「＋ステップ追加」してください。</span>';
+        document.getElementById('resultBox').innerHTML = resultHtml;
+        return;
+      }
+      const baseCorners = getBaseCorners(WB, FOH, ROH, W);
+      const stepDeg = Math.abs(Number(document.getElementById('step').value)) || 10;
+      const renderIntervalDist = Math.max(1000, L / 2);
+      const isTractor = currentSvgType === 'tractor';
+      
+      let hitchOffset = 0, trailerW = 0, trailerWB = 1, trailerROH = 0, trailerCorners = [];
+      if (isTractor){
+        hitchOffset = Number(document.getElementById('hitchOffset').value) || 0;
+        trailerW = Number(document.getElementById('trailerW').value) || 0;
+        trailerWB = Number(document.getElementById('trailerWB').value) || 1;
+        trailerROH = Number(document.getElementById('trailerROH').value) || 0;
+        trailerCorners = [
+          {x: -trailerW/2, y: trailerWB}, {x: trailerW/2, y: trailerWB},
+          {x: trailerW/2, y: -trailerROH}, {x: -trailerW/2, y: -trailerROH}
+        ];
+      }
+
+      let pose = {x: 0, y: 0, phi: 0};
+      let beta = 0;
+      let maxHitchAngleDeg = 0;
+      let usedFeedback = false;
+      let feedbackConverged = true;
+
+      function trailerPoseFromBeta(hitchPt, betaVal){
+        return { x: hitchPt.x + trailerWB*Math.sin(betaVal), y: hitchPt.y - trailerWB*Math.cos(betaVal), phi: betaVal };
+      }
+      function advanceTrailer(prevPose, newPose){
+        if (!isTractor) return;
+        const prevHitch = toGlobal(0, hitchOffset, prevPose);
+        const newHitch = toGlobal(0, hitchOffset, newPose);
+        const dx = newHitch.x - prevHitch.x, dy = newHitch.y - prevHitch.y;
+        if (Math.hypot(dx, dy) > 1e-9){
+          const d1 = -(dx * Math.cos(beta) + dy * Math.sin(beta)) / trailerWB;
+          const betaMid = beta + d1 * 0.5;
+          const d2 = -(dx * Math.cos(betaMid) + dy * Math.sin(betaMid)) / trailerWB;
+          beta = normAngle(beta + d2);
+        }
+        const hitchAngleDeg = Math.abs(normAngle(newPose.phi - beta)) * 180 / Math.PI;
+        if (hitchAngleDeg > maxHitchAngleDeg) maxHitchAngleDeg = hitchAngleDeg;
+      }
+      function trailerSnapshotAt(p){
+        return cornersToGlobal(trailerCorners, trailerPoseFromBeta(toGlobal(0, hitchOffset, p), beta));
+      }
+      function getPsi(){
+        return normAngle(pose.phi - beta);
+      }
+      function moveByCurvature(dsSigned, kappa){
+        if (Math.abs(dsSigned) < 1e-9) return;
+        if (Math.abs(kappa) < 1e-12){
+          const localEnd = {x: 0, y: dsSigned};
+          const prevPose = pose;
+          const subPose = {
+            x: pose.x + localEnd.x*Math.cos(pose.phi) - localEnd.y*Math.sin(pose.phi),
+            y: pose.y + localEnd.x*Math.sin(pose.phi) + localEnd.y*Math.cos(pose.phi),
+            phi: pose.phi
+          };
+          advanceTrailer(prevPose, subPose);
+          pose = subPose;
+          return;
+        }
+        const dPhi = kappa * dsSigned;
+        const cxLocal = -1 / kappa;
+        const cyLocal = (steerMode === '4ws') ? WB / 2 : 0;
+        const subOrigin = rotateLocal(0, 0, cxLocal, cyLocal, dPhi);
+        const prevPose = pose;
+        const subPose = {
+          x: pose.x + subOrigin.x*Math.cos(pose.phi) - subOrigin.y*Math.sin(pose.phi),
+          y: pose.y + subOrigin.x*Math.sin(pose.phi) + subOrigin.y*Math.cos(pose.phi),
+          phi: normAngle(pose.phi + dPhi)
+        };
+        advanceTrailer(prevPose, subPose);
+        pose = subPose;
+      }
+
+      simPathPoints = [[], [], [], []];
+      simTrailerPathPoints = [[], [], [], []];
+      
+      function recordPath(){
+        const tCorners = cornersToGlobal(baseCorners, pose);
+        for(let i=0; i<4; i++) simPathPoints[i].push(tCorners[i]);
+        if(isTractor){
+          const trCorners = trailerSnapshotAt(pose);
+          for(let i=0; i<4; i++) simTrailerPathPoints[i].push(trCorners[i]);
+        }
+      }
+
+      simSnapshots = [cornersToGlobal(baseCorners, pose)];
+      simTrailerSnapshots = isTractor ? [trailerSnapshotAt(pose)] : [];
+      simDirMeta.push({ isReverse: false }); 
+      recordPath();
+
+      steps.forEach(step => {
+        const dirSign = step.dir === 'forward' ? 1 : -1;
+        const isRev = (dirSign === -1);
+
+        if (step.feedback && isTractor && step.steer !== 'straight' && step.dir === 'reverse'){
+          usedFeedback = true;
+          const steerSign = step.steer === 'right' ? 1 : -1;
+          const targetBetaChange = Math.abs(step.value) * Math.PI / 180;
+          if (targetBetaChange < 1e-10) return;
+
+          let totalTargetDelta = (-steerSign) * targetBetaChange;
+          let accumulatedBeta = 0;
+          let prevBeta = beta;
+
+          const psiLimit = Math.max(1, Math.min(55, Math.abs(step.psiMax || 40))) * Math.PI / 180;
+          const K = 2.0 / trailerWB; 
+          const dsStep = 20; 
+          const maxTravel = Math.max(300000, targetBetaChange * trailerWB * 8);
+          
+          let travelled = 0, sinceRender = 0, localConverged = false;
+          while (travelled < maxTravel){
+            let stepDeltaBeta = normAngle(beta - prevBeta);
+            accumulatedBeta += stepDeltaBeta;
+            prevBeta = beta;
+            let diffBeta = totalTargetDelta - accumulatedBeta;
+            let psi = getPsi();
+            
+            if (Math.abs(diffBeta) < 1.0 * Math.PI / 180 && Math.abs(psi) < 3.0 * Math.PI / 180) {
+              localConverged = true;
+              break;
+            }
+            let desiredPsi = diffBeta * 2.0 * dirSign; 
+            desiredPsi = Math.max(-psiLimit, Math.min(psiLimit, desiredPsi));
+            
+            const h_eff = (steerMode === '4ws') ? hitchOffset - WB / 2 : hitchOffset;
+            const hitchFactor = 1 + (h_eff * Math.cos(psi)) / trailerWB;
+            const safeFactor = Math.abs(hitchFactor) < 0.1 ? (hitchFactor >= 0 ? 0.1 : -0.1) : hitchFactor;
+            let kappa = (Math.sin(psi) / trailerWB + dirSign * K * (desiredPsi - psi)) / safeFactor;
+            
+            kappa = Math.max(-kappaMax, Math.min(kappaMax, kappa));
+            
+            moveByCurvature(dirSign * dsStep, kappa);
+            recordPath();
+            
+            if (Math.abs(getPsi()) > maxHitchAngleDeg * Math.PI / 180) maxHitchAngleDeg = Math.abs(getPsi()) * 180 / Math.PI;
+            
+            travelled += dsStep;
+            sinceRender += dsStep;
+            if (sinceRender >= renderIntervalDist){
+              simSnapshots.push(cornersToGlobal(baseCorners, pose));
+              simTrailerSnapshots.push(trailerSnapshotAt(pose));
+              simDirMeta.push({ isReverse: isRev });
+              sinceRender = 0;
+            }
+          }
+          if (!localConverged) feedbackConverged = false;
+          simSnapshots.push(cornersToGlobal(baseCorners, pose));
+          simTrailerSnapshots.push(trailerSnapshotAt(pose));
+          simDirMeta.push({ isReverse: isRev });
+
+        } else if (step.steer === 'straight'){
+          const dist = Math.abs(step.value) * 1000;
+          if (dist < 1e-9) return;
+          const nSub = Math.max(1, Math.ceil(dist / 50));
+          const dsSigned = dirSign * (dist / nSub);
+          let sinceRender = 0;
+          for (let i = 0; i < nSub; i++){
+            moveByCurvature(dsSigned, 0);
+            recordPath();
+            sinceRender += Math.abs(dsSigned);
+            if (sinceRender >= renderIntervalDist || i === nSub - 1){
+              simSnapshots.push(cornersToGlobal(baseCorners, pose));
+              if (isTractor) simTrailerSnapshots.push(trailerSnapshotAt(pose));
+              simDirMeta.push({ isReverse: isRev });
+              sinceRender = 0;
+            }
+          }
+        } else {
+          const steerSign = step.steer === 'right' ? 1 : -1;
+          const angleDeg = Math.abs(step.value);
+          if (angleDeg < 1e-9) return;
+          const nSub = Math.max(1, Math.ceil(angleDeg / 1));
+          const dPhi = -steerSign * dirSign * (angleDeg / nSub * Math.PI / 180);
+          const dsSigned = dPhi / (-steerSign / Rc);
+          let sinceRenderDeg = 0;
+          for (let i = 0; i < nSub; i++){
+            moveByCurvature(dsSigned, -steerSign / Rc);
+            recordPath();
+            sinceRenderDeg += angleDeg / nSub;
+            if (sinceRenderDeg >= stepDeg || i === nSub - 1){
+              simSnapshots.push(cornersToGlobal(baseCorners, pose));
+              if (isTractor) simTrailerSnapshots.push(trailerSnapshotAt(pose));
+              simDirMeta.push({ isReverse: isRev });
+              sinceRenderDeg = 0;
+            }
+          }
+        }
+      });
+
+      let trailerInfo = '';
+      if (isTractor){
+        if (maxHitchAngleDeg > 55) trailerInfo += `<div class="warn">⚠ 連結角が最大${maxHitchAngleDeg.toFixed(1)}°に達しました。ジャックナイフの危険があります。</div>`;
+        if (usedFeedback && !feedbackConverged) trailerInfo += `<div class="warn">⚠ フィードバック制御が目標回転角に収束しませんでした。</div>`;
+        trailerInfo += `<div><b>トレーラー最終向き</b>: ${(normAngle(beta) * 180 / Math.PI).toFixed(1)}°</div>` +
+                       `<div><b>最大連結角</b>: ${maxHitchAngleDeg.toFixed(1)}°</div>`;
+        if (usedFeedback) trailerInfo += `<div><b>フィードバック制御</b>: ${feedbackConverged ? '収束' : '未収束'}</div>`;
+      }
+      resultHtml = `<div><b>最終位置</b>: X=${pose.x.toFixed(0)}mm, Y=${pose.y.toFixed(0)}mm</div>` +
+                   `<div><b>最終向き</b>: ${(normAngle(pose.phi) * 180 / Math.PI).toFixed(1)}°</div>` +
+                   trailerInfo + `<div><b>ステップ数</b>: ${steps.length}</div>`;
+      isDirty = false;
+      updateViewBox();
+      redraw();
+      
+      if (isTractor && usedFeedback) {
+        showToast("⚠ 注意：このトレーラーの軌跡は「運転が上手すぎる（理論上の最短経路）」状態です。<br>実際の運転ではより広いスペースを確保してください。", 6000);
+      }
+    }
+
+    function updateViewBox() {
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      [...simPathPoints, ...simTrailerPathPoints].forEach(pathArr => pathArr.forEach(p => {
+        if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+      }));
+      [...simSnapshots, ...simTrailerSnapshots].forEach(box => box.forEach(p => {
+        if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+      }));
+      roads.forEach(r => {
+        const hw = r.width / 2;
+        if (r.x1 - hw < minX) minX = r.x1 - hw; if (r.x1 + hw > maxX) maxX = r.x1 + hw;
+        if (r.x2 - hw < minX) minX = r.x2 - hw; if (r.x2 + hw > maxX) maxX = r.x2 + hw;
+        if (r.y1 - hw < minY) minY = r.y1 - hw; if (r.y1 + hw > maxY) maxY = r.y1 + hw;
+        if (r.y2 - hw < minY) minY = r.y2 - hw; if (r.y2 + hw > maxY) maxY = r.y2 + hw;
+      });
+      if (minX === Infinity) { minX = -5000; maxX = 5000; minY = -5000; maxY = 5000; }
+
+      const canvas = document.getElementById('canvas');
+      const spanX = Math.max(maxX - minX, 500), spanY = Math.max(maxY - minY, 500);
+      viewScale = Math.min(canvas.width * 0.76 / spanX, canvas.height * 0.76 / spanY);
+      viewCx = (minX + maxX) / 2; viewCy = (minY + maxY) / 2;
+    }
+    function getGlobalCoords(e) {
+      const canvas = document.getElementById('canvas');
+      const rect = canvas.getBoundingClientRect();
+      const sx = (e.clientX - rect.left) * (canvas.width / rect.width);
+      const sy = (e.clientY - rect.top) * (canvas.height / rect.height);
+      return {
+        x: (sx - canvas.width/2) / viewScale + viewCx,
+        y: (canvas.height/2 - sy) / viewScale + viewCy
+      };
+    }
+    function distToSegment(p, v, w) {
+      const l2 = (w.x - v.x)**2 + (w.y - v.y)**2;
+      if (l2 === 0) return Math.hypot(p.x - v.x, p.y - v.y);
+      let t = Math.max(0, Math.min(1, ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2));
+      return Math.hypot(p.x - (v.x + t * (w.x - v.x)), p.y - (v.y + t * (w.y - v.y)));
+    }
+    function getHitTarget(clickG) {
+      let hitDimIdx = -1, hitRoadIdx = -1, minDimDist = Infinity, minRoadDist = Infinity;
+      for(let i=0; i<roads.length; i++){
+        const r = roads[i];
+        if(r.dim) {
+          const dx = r.x2 - r.x1, dy = r.y2 - r.y1, len = Math.hypot(dx, dy);
+          if(len > 0){
+            const nx = -dy/len, ny = dx/len, hw = r.width/2;
+            const cx = r.x1 + dx * r.dim.t, cy = r.y1 + dy * r.dim.t;
+            const d = distToSegment(clickG, {x: cx + nx*hw, y: cy + ny*hw}, {x: cx - nx*hw, y: cy - ny*hw});
+            if(d < Math.max(1000, 15 / viewScale) && d < minDimDist) { minDimDist = d; hitDimIdx = i; }
+          }
+        }
+        const dRoad = distToSegment(clickG, {x: r.x1, y: r.y1}, {x: r.x2, y: r.y2});
+        if(dRoad < Math.max(r.width/2, 1000) && dRoad < minRoadDist) { minRoadDist = dRoad; hitRoadIdx = i; }
+      }
+      if (hitDimIdx !== -1) return { type: 'dim', index: hitDimIdx };
+      if (hitRoadIdx !== -1) return { type: 'road', index: hitRoadIdx };
+      return null;
+    }
+    function drawRoad(r, ctx, isPreview = false, roadHovered = false, dimHovered = false) {
+      const dx = r.x2 - r.x1, dy = r.y2 - r.y1, len = Math.hypot(dx, dy);
+      if (len === 0) return;
+      const nx = -dy / len, ny = dx / len, hw = r.width / 2;
+      const p1x = r.x1 + nx * hw, p1y = r.y1 + ny * hw;
+      const p2x = r.x2 + nx * hw, p2y = r.y2 + ny * hw;
+      const p3x = r.x1 - nx * hw, p3y = r.y1 - ny * hw;
+      const p4x = r.x2 - nx * hw, p4y = r.y2 - ny * hw;
+      
+      // 塗りつぶし
+      ctx.beginPath();
+      ctx.moveTo(p1x, p1y); ctx.lineTo(p2x, p2y); ctx.lineTo(p4x, p4y); ctx.lineTo(p3x, p3y); ctx.closePath();
+      ctx.fillStyle = isPreview ? 'rgba(0, 255, 255, 0.2)' : roadHovered ? 'rgba(255, 170, 0, 0.25)' : 'rgba(255, 255, 255, 0.2)';
+      ctx.fill();
+
+      // 境界線
+      ctx.beginPath();
+      ctx.lineWidth = Math.max(150, 3 / viewScale); 
+      ctx.strokeStyle = isPreview ? 'rgba(0, 255, 255, 0.8)' : roadHovered ? '#ffaa00' : '#ffffff';
+      if (isPreview) ctx.setLineDash([400, 400]);
+      ctx.moveTo(p1x, p1y); ctx.lineTo(p2x, p2y);
+      ctx.moveTo(p3x, p3y); ctx.lineTo(p4x, p4y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      if (!isPreview) {
+        dxfLines.push({type: 'LINE', x1: p1x, y1: p1y, x2: p2x, y2: p2y, layer: 'Road', color: 7});
+        dxfLines.push({type: 'LINE', x1: p3x, y1: p3y, x2: p4x, y2: p4y, layer: 'Road', color: 7});
+      }
+
+      if (r.dim && !isPreview) {
+        const cx = r.x1 + dx * r.dim.t, cy = r.y1 + dy * r.dim.t;
+        const dimA = {x: cx + nx*hw, y: cy + ny*hw}, dimB = {x: cx - nx*hw, y: cy - ny*hw};
+        const textStr = (r.width/1000).toFixed(1) + "m";
+        ctx.font = 'bold 16px sans-serif';
+        const gap_global = (ctx.measureText(textStr).width + 10) / viewScale; 
+        
+        let dimAngle = Math.atan2(ny, nx);
+        if (dimAngle > Math.PI/2 || dimAngle <= -Math.PI/2) dimAngle += Math.PI; 
+        
+        ctx.beginPath();
+        ctx.lineWidth = Math.max(80, 2 / viewScale);
+        ctx.strokeStyle = ctx.fillStyle = dimHovered ? '#ffffcc' : '#ffcc00';
+        if (r.width > gap_global) {
+          ctx.moveTo(dimA.x, dimA.y); ctx.lineTo(cx + nx * gap_global/2, cy + ny * gap_global/2);
+          ctx.moveTo(dimB.x, dimB.y); ctx.lineTo(cx - nx * gap_global/2, cy - ny * gap_global/2);
+        } else {
+          ctx.moveTo(dimA.x, dimA.y); ctx.lineTo(dimB.x, dimB.y);
+        }
+        ctx.stroke();
+        
+        const asize = Math.min(600, r.width/4);
+        ctx.beginPath();
+        ctx.moveTo(dimA.x, dimA.y);
+        ctx.lineTo(dimA.x - nx*asize + ny*asize*0.4, dimA.y - ny*asize - nx*asize*0.4);
+        ctx.lineTo(dimA.x - nx*asize - ny*asize*0.4, dimA.y - ny*asize + nx*asize*0.4);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(dimB.x, dimB.y);
+        ctx.lineTo(dimB.x + nx*asize + ny*asize*0.4, dimB.y + ny*asize - nx*asize*0.4);
+        ctx.lineTo(dimB.x + nx*asize - ny*asize*0.4, dimB.y + ny*asize + nx*asize*0.4);
+        ctx.fill();
+        
+        ctx.save();
+        ctx.translate(cx, cy); ctx.rotate(dimAngle); ctx.scale(1/viewScale, -1/viewScale);
+        ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(textStr, 0, 2); 
+        ctx.restore();
+        
+        if (!isPreview) {
+          const textH = 400, gap_dxf = textStr.length * textH * 0.7 + 200;
+          if (r.width > gap_dxf) {
+            dxfLines.push({type: 'LINE', x1: dimA.x, y1: dimA.y, x2: cx + nx * gap_dxf/2, y2: cy + ny * gap_dxf/2, layer: 'RoadDim', color: 2});
+            dxfLines.push({type: 'LINE', x1: dimB.x, y1: dimB.y, x2: cx - nx * gap_dxf/2, y2: cy - ny * gap_dxf/2, layer: 'RoadDim', color: 2});
+          } else {
+            dxfLines.push({type: 'LINE', x1: dimA.x, y1: dimA.y, x2: dimB.x, y2: dimB.y, layer: 'RoadDim', color: 2});
+          }
+          dxfLines.push({type: 'LINE', x1: dimA.x, y1: dimA.y, x2: dimA.x - nx*asize + ny*asize*0.4, y2: dimA.y - ny*asize - nx*asize*0.4, layer: 'RoadDim', color: 2});
+          dxfLines.push({type: 'LINE', x1: dimA.x, y1: dimA.y, x2: dimA.x - nx*asize - ny*asize*0.4, y2: dimA.y - ny*asize + nx*asize*0.4, layer: 'RoadDim', color: 2});
+          dxfLines.push({type: 'LINE', x1: dimB.x, y1: dimB.y, x2: dimB.x + nx*asize + ny*asize*0.4, y2: dimB.y + ny*asize - nx*asize*0.4, layer: 'RoadDim', color: 2});
+          dxfLines.push({type: 'LINE', x1: dimB.x, y1: dimB.y, x2: dimB.x + nx*asize - ny*asize*0.4, y2: dimB.y + ny*asize + nx*asize*0.4, layer: 'RoadDim', color: 2});
+          dxfLines.push({type: 'TEXT', x: cx, y: cy, text: textStr, height: textH, layer: 'RoadDim', color: 2, rotation: dimAngle * 180 / Math.PI, align: true});
+        }
+      }
+    }
+    function redraw() {
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      dxfLines = [];
+      ctx.save();
+      ctx.translate(canvas.width/2, canvas.height/2);
+      ctx.scale(viewScale, -viewScale);
+      ctx.translate(-viewCx, -viewCy);
+
+      ctx.strokeStyle = '#222'; ctx.lineWidth = 1/viewScale;
+      const gStep = 1000;
+      const gMinX = Math.floor((viewCx - canvas.width/2/viewScale)/gStep)*gStep - gStep;
+      const gMaxX = Math.ceil((viewCx + canvas.width/2/viewScale)/gStep)*gStep + gStep;
+      const gMinY = Math.floor((viewCy - canvas.height/2/viewScale)/gStep)*gStep - gStep;
+      const gMaxY = Math.ceil((viewCy + canvas.height/2/viewScale)/gStep)*gStep + gStep;
+      for (let gx = gMinX; gx <= gMaxX; gx += gStep){ ctx.beginPath(); ctx.moveTo(gx, gMinY); ctx.lineTo(gx, gMaxY); ctx.stroke(); }
+      for (let gy = gMinY; gy <= gMaxY; gy += gStep){ ctx.beginPath(); ctx.moveTo(gMinX, gy); ctx.lineTo(gMaxX, gy); ctx.stroke(); }
+
+      roads.forEach((r, idx) => {
+        drawRoad(r, ctx, false, 
+          (hoveredTarget?.type === 'road' && hoveredTarget?.index === idx) || (isDraggingRoad && draggedRoadIndex === idx),
+          (hoveredTarget?.type === 'dim' && hoveredTarget?.index === idx) || (isDraggingDim && draggedRoadIndex === idx)
+        );
+      });
+      if (opMode === 'road' && isDragging && dragStartG && dragCurrentG) {
+        drawRoad({x1: dragStartG.x, y1: dragStartG.y, x2: dragCurrentG.x, y2: dragCurrentG.y, width: (Number(document.getElementById('roadWidth').value) || 4.0) * 1000}, ctx, true);
+      }
+
+      const tractLineW = Math.max(40, 2 / viewScale), tractTrajW = Math.max(30, 2 / viewScale);
+      const trailLineW = Math.max(35, 2 / viewScale), trailTrajW = Math.max(25, 2 / viewScale);
+
+      simSnapshots.forEach((box, idx) => {
+        const isStart = idx === 0, isEnd = idx === simSnapshots.length-1, isRev = simDirMeta[idx]?.isReverse;
+        ctx.beginPath();
+        ctx.strokeStyle = isStart ? '#00ffaa' : (isEnd ? '#ff8800' : '#ffcc00');
+        ctx.lineWidth = tractLineW;
+        ctx.moveTo(box[0].x, box[0].y);
+        for (let i = 1; i < 4; i++) ctx.lineTo(box[i].x, box[i].y);
+        ctx.closePath(); ctx.stroke();
+
+        for (let i = 0; i < 4; i++) dxfLines.push({type: 'LINE', x1: box[i].x, y1: box[i].y, x2: box[(i+1)%4].x, y2: box[(i+1)%4].y, layer: 'VehicleBox', color: 3});
+
+        if (isStart || isEnd) drawFrontMarker(box, ctx, isRev);
+      });
+
+      if (simTrailerSnapshots.length > 0){
+        ctx.setLineDash([120, 80]);
+        simTrailerSnapshots.forEach((box, idx) => {
+          const isStart = idx === 0, isEnd = idx === simTrailerSnapshots.length-1;
+          ctx.beginPath();
+          ctx.strokeStyle = isStart ? '#00ffaa' : (isEnd ? '#ff8800' : '#cc66ff');
+          ctx.lineWidth = trailLineW;
+          ctx.moveTo(box[0].x, box[0].y);
+          for (let i = 1; i < 4; i++) ctx.lineTo(box[i].x, box[i].y);
+          ctx.closePath(); ctx.stroke();
+
+          for (let i = 0; i < 4; i++) dxfLines.push({type: 'LINE', x1: box[i].x, y1: box[i].y, x2: box[(i+1)%4].x, y2: box[(i+1)%4].y, layer: 'TrailerBox', color: 6});
+        });
+        ctx.setLineDash([]);
+      }
+
+      if (simPathPoints[0] && simPathPoints[0].length > 0) {
+        ctx.beginPath();
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = tractTrajW;
+        for (let i = 0; i < 4; i++) {
+          ctx.moveTo(simPathPoints[i][0].x, simPathPoints[i][0].y);
+          for (let j = 1; j < simPathPoints[i].length; j++) {
+            ctx.lineTo(simPathPoints[i][j].x, simPathPoints[i][j].y);
+            dxfLines.push({type: 'LINE', x1: simPathPoints[i][j-1].x, y1: simPathPoints[i][j-1].y, x2: simPathPoints[i][j].x, y2: simPathPoints[i][j].y, layer: 'Trajectory', color: 4});
+          }
+        }
+        ctx.stroke();
+      }
+
+      if (simTrailerPathPoints[0] && simTrailerPathPoints[0].length > 0) {
+        ctx.beginPath();
+        ctx.strokeStyle = '#ff66cc';
+        ctx.lineWidth = trailTrajW;
+        for (let i = 0; i < 4; i++) {
+          ctx.moveTo(simTrailerPathPoints[i][0].x, simTrailerPathPoints[i][0].y);
+          for (let j = 1; j < simTrailerPathPoints[i].length; j++) {
+            ctx.lineTo(simTrailerPathPoints[i][j].x, simTrailerPathPoints[i][j].y);
+            dxfLines.push({type: 'LINE', x1: simTrailerPathPoints[i][j-1].x, y1: simTrailerPathPoints[i][j-1].y, x2: simTrailerPathPoints[i][j].x, y2: simTrailerPathPoints[i][j].y, layer: 'TrailerTrajectory', color: 1});
+          }
+        }
+        ctx.stroke();
+      }
+
+      ctx.beginPath(); ctx.fillStyle = '#ff0044'; ctx.arc(0, 0, 100, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center';
+      if (simTrailerSnapshots.length > 0){
+        const b = simTrailerSnapshots[0], mid = {x: (b[0].x+b[2].x)/2, y: (b[0].y+b[2].y)/2};
+        ctx.fillText('トレーラー', canvas.width/2 + (mid.x - viewCx) * viewScale, canvas.height/2 - (mid.y - viewCy) * viewScale - 14);
+      }
+      if (!document.querySelector('.btn-draw').disabled) document.getElementById('resultBox').innerHTML = resultHtml;
+    }
+
+    function drawFrontMarker(box, ctx, isReverse = false){
+      const fM = {x: (box[0].x+box[1].x)/2, y: (box[0].y+box[1].y)/2}, rM = {x: (box[2].x+box[3].x)/2, y: (box[2].y+box[3].y)/2};
+      let dx = fM.x - rM.x, dy = fM.y - rM.y;
+      const len = Math.hypot(dx, dy) || 1;
+      dx /= len; dy /= len;
+      ctx.beginPath(); ctx.fillStyle = isReverse ? '#ff4444' : '#ffffff';
+      ctx.moveTo(fM.x + dx*800, fM.y + dy*800);
+      ctx.lineTo(fM.x - dx*200 - dy*250, fM.y - dy*200 + dx*250);
+      ctx.lineTo(fM.x - dx*200 + dy*250, fM.y - dy*200 - dx*250);
+      ctx.closePath(); ctx.fill();
+    }
+
+    function downloadImage(bgMode) {
+      document.getElementById('imgMenu').style.display = 'none';
+      if (isDirty && !confirm("変更値が軌跡に反映されていません。このまま保存してもよろしいですか？\n※描画更新後に保存する事をおススメします。")) return;
+      
+      const canvas = document.getElementById('canvas');
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width; tempCanvas.height = canvas.height;
+      const tCtx = tempCanvas.getContext('2d');
+
+      if (bgMode === 'black') {
+        tCtx.fillStyle = '#000000';
+        tCtx.fillRect(0, 0, canvas.width, canvas.height);
+        tCtx.drawImage(canvas, 0, 0);
+      } else {
+        tCtx.fillStyle = '#ffffff';
+        tCtx.fillRect(0, 0, canvas.width, canvas.height);
+        const mainCtx = canvas.getContext('2d');
+        const imgData = mainCtx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imgData.data;
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i+3] > 0) {
+            data[i] = 255 - data[i];
+            data[i+1] = 255 - data[i+1];
+            data[i+2] = 255 - data[i+2];
+          }
+        }
+        const invCanvas = document.createElement('canvas');
+        invCanvas.width = canvas.width; invCanvas.height = canvas.height;
+        invCanvas.getContext('2d').putImageData(imgData, 0, 0);
+        tCtx.drawImage(invCanvas, 0, 0);
+      }
+
+      const a = document.createElement("a");
+      a.href = tempCanvas.toDataURL("image/png");
+      a.download = getExportFilename("png");
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
+
+    function downloadDXF(){
+      if (dxfLines.length === 0){ alert("先に描画を行ってください。"); return; }
+      if (isDirty && !confirm("変更値が軌跡に反映されていません。このまま保存してもよろしいですか？\n※描画更新後に保存する事をおススメします。")) return;
+      
+      let dxf = "0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n0\nENDSEC\n0\nSECTION\n2\nTABLES\n0\nENDSEC\n0\nSECTION\n2\nBLOCKS\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n";
+      dxfLines.forEach(i => {
+        if (i.type === 'TEXT') {
+          dxf += `0\nTEXT\n8\n${i.layer}\n${i.color?`62\n${i.color}\n`:''}10\n${i.x.toFixed(2)}\n20\n${i.y.toFixed(2)}\n40\n${i.height.toFixed(2)}\n1\n${i.text}\n50\n${i.rotation.toFixed(2)}\n`;
+          if (i.align) dxf += `72\n1\n73\n2\n11\n${i.x.toFixed(2)}\n21\n${i.y.toFixed(2)}\n`;
+        } else {
+          dxf += `0\nLINE\n8\n${i.layer||'0'}\n${i.color?`62\n${i.color}\n`:''}10\n${i.x1.toFixed(2)}\n20\n${i.y1.toFixed(2)}\n11\n${i.x2.toFixed(2)}\n21\n${i.y2.toFixed(2)}\n`;
+        }
+      });
+      dxf += "0\nENDSEC\n0\nEOF\n";
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([dxf], {type: "application/dxf"}));
+      a.download = getExportFilename("dxf");
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
+
+    // マウス・タッチイベント設定
+    function initCanvasEvents() {
+      const canvas = document.getElementById('canvas');
+      
+      canvas.addEventListener('pointerdown', (e) => {
+        if (opMode !== 'road') return; 
+        
+        hideContextMenu();
+        
+        if (e.button !== 0) return; // 左クリック以外は何もしない
+
+        const clickG = getGlobalCoords(e);
+        const target = getHitTarget(clickG);
+        
+        touchStartX = e.clientX;
+        touchStartY = e.clientY;
+        
+        if (target?.type === 'dim') { isDraggingDim = true; draggedRoadIndex = target.index; }
+        else if (target?.type === 'road') { isDraggingRoad = true; draggedRoadIndex = target.index; lastDragG = clickG; }
+        else { isDragging = true; dragStartG = dragCurrentG = clickG; }
+        redraw();
+        e.target.setPointerCapture(e.pointerId);
+
+        // 長押しタイマーセット（道路か寸法をタッチした場合のみ）
+        if (target?.type === 'dim' || target?.type === 'road') {
+          longPressTimer = setTimeout(() => {
+            isDragging = isDraggingRoad = isDraggingDim = false;
+            draggedRoadIndex = -1;
+            redraw();
+            showContextMenu(e.clientX, e.clientY, target);
+          }, LONG_PRESS_DELAY);
+        }
+      });
+      
+      canvas.addEventListener('pointermove', (e) => {
+        if (opMode !== 'road') return;
+        
+        // 一定以上指が動いたら長押しをキャンセル（iPadの指のブレを考慮して15pxに緩和）
+        if (longPressTimer) {
+          if (Math.hypot(e.clientX - touchStartX, e.clientY - touchStartY) > 15) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+          }
+        }
+        
+        const currG = getGlobalCoords(e);
+        if (isDraggingDim && draggedRoadIndex !== -1) {
+          const r = roads[draggedRoadIndex], dx = r.x2 - r.x1, dy = r.y2 - r.y1, len2 = dx*dx + dy*dy;
+          if (len2 > 0) r.dim.t = Math.max(0, Math.min(1, ((currG.x - r.x1)*dx + (currG.y - r.y1)*dy) / len2));
+          redraw();
+        } else if (isDraggingRoad && draggedRoadIndex !== -1) {
+          const dx = currG.x - lastDragG.x, dy = currG.y - lastDragG.y;
+          roads[draggedRoadIndex].x1 += dx; roads[draggedRoadIndex].y1 += dy;
+          roads[draggedRoadIndex].x2 += dx; roads[draggedRoadIndex].y2 += dy;
+          lastDragG = currG; redraw();
+        } else if (isDragging) {
+          const dx = currG.x - dragStartG.x, dy = currG.y - dragStartG.y;
+          const dist = Math.max(1000, Math.hypot(dx, dy));
+          const angle = Math.round(Math.atan2(dy, dx) / (Math.PI / 36)) * (Math.PI / 36); 
+          dragCurrentG = { x: dragStartG.x + Math.cos(angle) * dist, y: dragStartG.y + Math.sin(angle) * dist };
+          redraw();
+        } else {
+          const target = getHitTarget(currG);
+          if (hoveredTarget?.type !== target?.type || hoveredTarget?.index !== target?.index) {
+            hoveredTarget = target;
+            canvas.style.cursor = target ? 'move' : 'crosshair';
+            redraw();
+          }
+        }
+      });
+      
+      canvas.addEventListener('pointerup', (e) => {
+        if (longPressTimer) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        }
+        if (opMode !== 'road' || e.button !== 0) return;
+        
+        if (isDraggingDim) { isDraggingDim = false; draggedRoadIndex = -1; redraw(); }
+        else if (isDraggingRoad) { isDraggingRoad = false; draggedRoadIndex = -1; updateViewBox(); redraw(); }
+        else if (isDragging) {
+          isDragging = false;
+          const dx = getGlobalCoords(e).x - dragStartG.x, dy = getGlobalCoords(e).y - dragStartG.y;
+          const dist = Math.max(1000, Math.hypot(dx, dy));
+          const angle = Math.round(Math.atan2(dy, dx) / (Math.PI / 36)) * (Math.PI / 36);
+          dragCurrentG = { x: dragStartG.x + Math.cos(angle) * dist, y: dragStartG.y + Math.sin(angle) * dist };
+          if (Math.hypot(dx, dy) > 100) roads.push({ x1: dragStartG.x, y1: dragStartG.y, x2: dragCurrentG.x, y2: dragCurrentG.y, width: (Number(document.getElementById('roadWidth').value) || 4.0) * 1000, dim: { t: 0.15 } });
+          updateViewBox(); redraw();
+        }
+        if (e.target.hasPointerCapture(e.pointerId)) {
+          e.target.releasePointerCapture(e.pointerId);
+        }
+      });
+      
+      canvas.addEventListener('pointerout', () => {
+        if (longPressTimer) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        }
+        if (hoveredTarget) { hoveredTarget = null; if (opMode === 'road') canvas.style.cursor = 'crosshair'; redraw(); }
+      });
+      
+      canvas.addEventListener('contextmenu', (e) => {
+        if (opMode !== 'road') return;
+        e.preventDefault(); 
+        const target = getHitTarget(getGlobalCoords(e));
+        if (target) {
+          showContextMenu(e.clientX, e.clientY, target);
+        } else {
+          hideContextMenu();
+        }
+      });
+    }
+
+    window.onload = function(){
+      // 全ての入力欄にinputmodeを追加（念のため）
+      document.querySelectorAll('input[type="number"]').forEach(el => el.setAttribute('inputmode', 'none'));
+      
+      initVehiclePresets(); initTrailerPresets(); initCanvasEvents(); initNumpadDrag();
+      
+      // 入力欄のタッチ時にソフトウェアキーボードを抑制して独自テンキーを表示
+      document.querySelector('.sidebar').addEventListener('pointerdown', (e) => {
+        if (e.target.tagName === 'INPUT' && (e.target.type === 'number' || e.target.dataset.isNum)) {
+          if (e.pointerType !== 'mouse') {
+            e.preventDefault(); // モバイルでのOSキーボード展開を防止
+          }
+          e.target.dataset.isNum = "true"; 
+          showNumpad(e.target);
+        }
+      });
+      
+      document.querySelector('.sidebar').addEventListener('input', (e) => { if (e.target.name !== 'opMode') markAsChanged(); });
+      document.querySelector('.sidebar').addEventListener('change', (e) => { if (e.target.name !== 'opMode') markAsChanged(); });
+      
+      // 画面のどこかをタッチした時に各種メニューを閉じる処理
+      document.addEventListener('pointerdown', (e) => {
+        const imgMenu = document.getElementById('imgMenu');
+        if (imgMenu.style.display === 'block' && !e.target.closest('#imgMenu') && !e.target.classList.contains('btn-img')) {
+          imgMenu.style.display = 'none';
+        }
+        const ctxMenu = document.getElementById('contextMenu');
+        if (ctxMenu.style.display === 'flex' && !e.target.closest('#contextMenu') && e.target.id !== 'canvas') {
+          hideContextMenu();
+        }
+      });
+      
+      addStep('reverse', 'left', 90); draw();
+    };
+  </script>
+</body>
+</html>

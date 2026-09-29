@@ -2,8 +2,10 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
+  <meta name="color-scheme" content="dark">
   <title>車両軌跡シミュレーター＆DXFジェネレーター v0.049 (iPad最適化・完全版)</title>
   <style>
+    :root{font-size:16px;}
     body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#1e1e1e;color:#fff;margin:0;padding:20px;box-sizing:border-box;height:100vh;height:100svh;overflow:hidden;display:flex;flex-direction:column}
     .disclaimer-bar{flex-shrink:0;width:100%;max-width:1400px;margin:0 auto 12px auto;box-sizing:border-box;background:#320;color:#fc6;border:1px solid #664d00;border-radius:6px;padding:6px 14px;font-size:.78rem;font-weight:bold;text-align:center;line-height:1.4}
     .wrap{display:flex;gap:20px;max-width:1400px;margin:0 auto;width:100%;flex:1 1 auto;min-height:0;flex-wrap:nowrap}
@@ -96,40 +98,26 @@
     .numpad-btn.span2{grid-column:span 2}
     .numpad-btn.enter{background:#2ea043;color:#fff}
     .numpad-btn.enter:hover{background:#3fb950}
-    
-    /* コンテキストメニュー用スタイル */
     .context-menu{position:fixed;background:rgba(30,30,30,0.95);border:1px solid #555;border-radius:6px;padding:6px;box-shadow:0 6px 16px rgba(0,0,0,0.6);z-index:3000;display:none;flex-direction:column;gap:4px;backdrop-filter:blur(4px)}
     .context-menu button{padding:12px 20px;background:#2a2a2a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:.95rem;width:100%;text-align:left;white-space:nowrap;transition:background .1s}
     .context-menu button:hover{background:#007acc}
     .context-menu button.danger{color:#ff5555}
     .context-menu button.danger:hover{background:#aa2222;color:#fff}
 
-    /* レスポンシブ: 中解像度向け (高さ800px以下) */
+    /* レスポンシブ: ベースのフォントサイズを縮小して全体比率を保つ */
     @media (max-height: 800px) {
+      :root{font-size:14px;}
       .sidebar, .canvas-area { padding: 12px; }
       .sidebar { gap: 6px; }
       .wrap { gap: 12px; }
       details.section, div.section { padding: 8px 10px; }
-      summary { margin-bottom: 6px; padding-bottom: 4px; font-size: 0.95rem; }
-      .form-group { margin-bottom: 5px; }
-      .form-group label { font-size: 0.85rem; }
-      input, select { padding: 4px; font-size: 0.8rem; }
-      button { padding: 8px; font-size: 0.95rem; }
-      .disclaimer-bar { margin-bottom: 8px; padding: 4px 10px; font-size: 0.75rem; }
     }
-    
-    /* レスポンシブ: 低解像度向け (高さ650px以下 または 幅1000px以下) */
     @media (max-height: 650px), (max-width: 1000px) {
-      .sidebar { width: 320px; gap: 4px; padding: 8px; }
-      .canvas-area { padding: 8px; }
-      .wrap { gap: 8px; }
+      :root{font-size:12px;}
+      .sidebar { width: 340px; padding: 10px; }
+      .sidebar, .canvas-area { padding: 10px; }
+      .wrap { gap: 10px; }
       details.section, div.section { padding: 6px 8px; }
-      summary { font-size: 0.9rem; margin-bottom: 4px; }
-      .form-group label { font-size: 0.8rem; }
-      input, select { padding: 3px; font-size: 0.75rem; }
-      button { padding: 6px; font-size: 0.9rem; }
-      .mode-tab { padding: 6px 0; font-size: 0.85rem; }
-      .disclaimer-bar { font-size: 0.7rem; line-height: 1.2; }
     }
   </style>
 </head>
@@ -147,7 +135,7 @@
             <span style="font-size: 1.1rem; font-weight: bold; line-height: 1.2; white-space: nowrap;">車両軌跡<b style="color:#ffaa00; font-size:1.1rem;">簡易</b>シミュレーター</span>
             <div style="display:flex; align-items:center; gap:6px;">
               <span style="font-size: 0.75rem; color: #888; font-weight: normal; line-height: 1;">v0.049</span>
-              <img src="https://hits.sh/osaki-kensetsu.github.io/vehicle-simulator.svg?style=flat-square&label=VISITS&color=007acc&labelColor=222222" alt="visits" style="height:12px;opacity:.8;" onerror="this.style.display='none'">
+              <img src="https://hits.sh/osaki-kensetsu.github.io/vehicle-simulator.svg?style=flat-square&label=VISITS&color=007acc&labelColor=222222" alt="visits" style="height:12px;opacity:.8;color-scheme:light;" onerror="this.style.display='none'">
             </div>
           </div>
         </h2>
@@ -288,7 +276,7 @@
           <text id="dim-foh-txt" class="dim-text">FOH</text>
           <line id="dim-roh-line" class="dim-line" marker-start="url(#arr-start)" marker-end="url(#arr-end)" />
           <text id="dim-roh-txt" class="dim-text">ROH</text>
-          <g id="trailer-dims" style="display: none;">
+          <g id="trailer-dims" class="hide">
             <line id="dim-twb-line" class="dim-line" stroke="#cc66ff" marker-start="url(#arr-start-purple)" marker-end="url(#arr-end-purple)" />
             <text id="dim-twb-txt" class="dim-text" fill="#cc66ff">TWB</text>
             <line id="dim-troh-line" class="dim-line" stroke="#cc66ff" marker-start="url(#arr-start-purple)" marker-end="url(#arr-end-purple)" />
@@ -298,19 +286,19 @@
             <circle id="cg-mark" class="cg-marker" r="8" />
             <path id="cg-cross1" stroke="#000" stroke-width="1.5" />
             <path id="cg-cross2" stroke="#000" stroke-width="1.5" />
-            <g id="layer-car" style="display: none;">
+            <g id="layer-car" class="hide">
               <path id="car-body" class="c-blue" />
               <circle id="car-tire-r" class="tire" />
               <circle id="car-tire-f" class="tire" />
             </g>
-            <g id="layer-truck" style="display: none;">
+            <g id="layer-truck" class="hide">
               <rect id="truck-bed" class="c-blue" />
               <path id="truck-cab" class="c-cab" />
               <circle id="truck-tire-r1" class="tire" />
               <circle id="truck-tire-r2" class="tire" />
               <circle id="truck-tire-f" class="tire" />
             </g>
-            <g id="layer-dump" style="display: none;">
+            <g id="layer-dump" class="hide">
               <rect id="dump-bed" class="c-green" />
               <path id="dump-lines" class="c-green" stroke-width="1.5" />
               <path id="dump-cab" class="c-cab" />
@@ -318,7 +306,7 @@
               <circle id="dump-tire-r2" class="tire" />
               <circle id="dump-tire-f" class="tire" />
             </g>
-            <g id="layer-mixer" style="display: none;">
+            <g id="layer-mixer" class="hide">
               <rect id="mix-subframe" class="c-purple" />
               <polygon id="mix-hop" class="c-purple" />
               <path id="mix-drum" class="c-purple" />
@@ -329,17 +317,17 @@
               <circle id="mix-tire-r2" class="tire" />
               <circle id="mix-tire-f" class="tire" />
             </g>
-            <g id="layer-tractor" style="display: none;">
-              <rect id="trac-trailer-bed" class="c-purple" style="display:none;" />
-              <circle id="trac-trailer-tire1" class="tire" style="display:none;" />
-              <circle id="trac-trailer-tire2" class="tire" style="display:none;" />
+            <g id="layer-tractor" class="hide">
+              <rect id="trac-trailer-bed" class="c-purple" class="hide" />
+              <circle id="trac-trailer-tire1" class="tire hide" />
+              <circle id="trac-trailer-tire2" class="tire hide" />
               <rect id="trac-frame" class="c-blue" />
               <circle id="trac-coupler" class="joint" r="6" />
               <path id="trac-cab" class="c-cab" />
               <circle id="trac-tire-r" class="tire" />
               <circle id="trac-tire-f" class="tire" />
             </g>
-            <g id="layer-roughter" style="display: none;">
+            <g id="layer-roughter" class="hide">
               <path id="rg-body" class="c-yellow" />
               <path id="rg-cab" class="c-cab" />
               <polygon id="rg-boom" fill="rgba(255,200,0,0.3)" stroke="#ffcc00" stroke-width="2" />
@@ -710,7 +698,10 @@
       document.getElementById('trailerSectionWrap').style.display = (opMode === 'sim' && isTractor) ? 'block' : 'none';
       ['car', 'truck', 'dump', 'mixer', 'tractor', 'roughter'].forEach(type => {
         const el = document.getElementById('layer-' + type);
-        if(el) el.style.display = (type === currentSvgType) ? 'inline' : 'none';
+        if(el) {
+           if(type === currentSvgType) el.classList.remove('hide');
+           else el.classList.add('hide');
+        }
       });
       document.querySelectorAll('.step-row .s-steer').forEach(sel => updateStepRowUI(sel));
       renderSilhouette();
@@ -824,7 +815,13 @@
     }
     function setGeom(id, attrs) {
       const el = document.getElementById(id);
-      if(el) for(let k in attrs) el.setAttribute(k, attrs[k]);
+      if(el) for(let k in attrs) {
+         if(k === 'class') {
+           el.className.baseVal = attrs[k];
+         } else {
+           el.setAttribute(k, attrs[k]);
+         }
+      }
     }
     function renderSilhouette(){
       let L = parseFloat(document.getElementById('L').value) || 1;
@@ -873,10 +870,11 @@
       const tireRX = tireFX - (WB * scale);
       const rearX = tireRX - (ROH * scale); 
 
-      setGeom('trac-trailer-bed', { style: 'display: none;' });
-      setGeom('trac-trailer-tire1', { style: 'display: none;' });
-      setGeom('trac-trailer-tire2', { style: 'display: none;' });
-      setGeom('trailer-dims', { style: 'display: none;' });
+      setGeom('trac-trailer-bed', { class: 'c-purple hide' });
+      setGeom('trac-trailer-tire1', { class: 'tire hide' });
+      setGeom('trac-trailer-tire2', { class: 'tire hide' });
+      document.getElementById('trailer-dims').classList.add('hide');
+      
       setGeom('line-rear', { x1: rearX, x2: rearX });
       setGeom('line-front', { x1: frontX, x2: frontX });
       setGeom('dim-l-line', { x1: rearX, x2: frontX, y1: 80, y2: 80 });
@@ -948,10 +946,10 @@
             const hitchX = tireRX + (hOffset * scale);
             const tAxleX = hitchX - (tWB * scale);
             const tRearX = tAxleX - (tROH * scale);
-            setGeom('trac-trailer-bed', { x: tRearX, y: 70, width: hitchX - tRearX + 20, height: 110, style: 'display: block;' });
-            setGeom('trac-trailer-tire1', { cx: tAxleX - 20, cy: 235, r: 25, style: 'display: block;' });
-            setGeom('trac-trailer-tire2', { cx: tAxleX + 20, cy: 235, r: 25, style: 'display: block;' });
-            setGeom('trailer-dims', { style: 'display: block;' });
+            setGeom('trac-trailer-bed', { x: tRearX, y: 70, width: hitchX - tRearX + 20, height: 110, class: 'c-purple' });
+            setGeom('trac-trailer-tire1', { cx: tAxleX - 20, cy: 235, r: 25, class: 'tire' });
+            setGeom('trac-trailer-tire2', { cx: tAxleX + 20, cy: 235, r: 25, class: 'tire' });
+            document.getElementById('trailer-dims').classList.remove('hide');
             setGeom('dim-twb-line', { x1: tAxleX, y1: 340, x2: hitchX, y2: 340 });
             setGeom('dim-twb-txt', { x: (tAxleX + hitchX) / 2, y: 335 });
             updateSVGTextWithTooltip('dim-twb-txt', 'TWB', tWB, '連結点〜トレーラー軸中心 (TWB)');

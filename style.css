@@ -41,7 +41,7 @@ canvas{background:#000;border:1px solid #555;border-radius:4px;max-width:100%;ma
 .mode-tab{flex:1;text-align:center;padding:10px 0;background:#222;cursor:pointer;font-size:.95rem;font-weight:bold;color:#888;transition:background .2s,color .2s;user-select:none}
 .mode-tab.active{background:#007acc;color:#fff}
 .mode-tab input{display:none}
-h2{margin:0;border-bottom:1px solid #444;padding-bottom:8px;color:#0af;display:flex;align-items:center;gap:8px;}
+h2{margin:0;border-bottom:1px solid #444;padding-bottom:8px;color:#0af;display:flex;align-items:center;gap:8px;font-size:1.05rem;}
 details.section,div.section{background:#222;padding:10px 14px;border-radius:6px;border:1px solid #444;flex-shrink:0}
 summary{font-size:1.05rem;font-weight:bold;color:#0af;cursor:pointer;outline:none;border-bottom:1px solid #444;padding-bottom:5px;margin-bottom:10px;user-select:none;list-style:none}
 summary::-webkit-details-marker{display:none}

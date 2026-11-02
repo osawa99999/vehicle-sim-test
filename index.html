@@ -4,18 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="color-scheme" content="dark">
-  <title>車両軌跡シミュレーター＆DXFジェネレーター v0.055 (iPad最適化・完全版)</title>
-  <link rel="stylesheet" href="style_3.css">
+  <title>車両軌跡シミュレーター＆DXFジェネレーター v0.056 (iPad最適化・完全版)</title>
+  <link rel="stylesheet" href="style_4.css">
   <script src="data_2.js"></script>
-  <script src="vehicle_shapes_1.js"></script>
+  <script src="vehicle_shapes_2.js"></script>
   <script src="dxf_writer_1.js"></script>
 </head>
 <body>
   <div id="toast" class="toast-notify"></div>
+  <div id="floatTip" class="float-tip">描画更新（軌跡再計算）をしてください</div>
   <div class="topbar">
     <div class="topbar-ctrl">
       <div class="img-wrap">
-        <button class="btn-img" onclick="document.getElementById('imgMenu').style.display = document.getElementById('imgMenu').style.display === 'none' ? 'block' : 'none'">画像出力 (PNG)</button>
+        <button class="btn-img" onclick="toggleImgMenu()">画像出力 (PNG)</button>
         <div id="imgMenu" style="display:none; position:absolute; top:calc(100% + 5px); left:0; width:230px; background:#222; border:1px solid #555; border-radius:6px; padding:6px; box-sizing:border-box; box-shadow:0 4px 10px rgba(0,0,0,0.5); z-index:100;">
           <div style="display:flex; gap:6px;">
             <button onclick="downloadImage('black')" style="background:#111; color:#fff; border:1px solid #444; flex:1; padding:8px;">背景:黒</button>
@@ -24,7 +25,7 @@
         </div>
       </div>
       <button class="btn-dxf" onclick="downloadDXF()">DXFファイル出力</button>
-      <span class="top-sim top-z"><label for="zOrder">重なり順（前面）</label><select id="zOrder" data-no-dirty="1" onchange="redraw()"><option value="end">終了位置が前面</option><option value="start">スタート位置が前面</option></select></span>
+      <span class="top-z"><label for="zOrder">重なり順（前面）</label><select id="zOrder" data-no-dirty="1" onchange="redraw()"><option value="end">終了位置が前面</option><option value="start">スタート位置が前面</option></select></span>
       <button class="btn-draw top-sim" onclick="draw()">描画更新 (軌跡再計算)</button>
     </div>
       <div class="disclaimer-bar">⚠ 本ツールは簡易シミュレーターです。車両寸法や回転半径は一般的な参考値であり、実車の正確な数値ではありません。<br>実際の安全確認は現場責任者の判断で行ってください。※本ツールの利用による事故・損害等の責任は一切負いかねます。</div>
@@ -39,7 +40,7 @@
           <div style="display:flex; flex-direction:column; gap:2px; flex:1; min-width:0;">
             <span style="font-size: 1.1rem; font-weight: bold; line-height: 1.2; white-space: nowrap;">車両軌跡<b style="color:#ffaa00; font-size:1.1rem;">簡易</b>シミュレーター</span>
             <div style="display:flex; align-items:center; gap:6px;">
-              <span style="font-size: 0.75rem; color: #888; font-weight: normal; line-height: 1;">v0.055</span>
+              <span style="font-size: 0.75rem; color: #888; font-weight: normal; line-height: 1;">v0.056</span>
               <img src="https://hits.sh/osaki-kensetsu.github.io/vehicle-simulator.svg?style=flat-square&label=VISITS&color=007acc&labelColor=222222" alt="visits" style="height:12px;opacity:.8;color-scheme:light;" onerror="this.style.display='none'">
             </div>
           </div>
@@ -110,11 +111,13 @@
         <details class="section sim-only">
           <summary>描画設定</summary>
           <div class="form-group"><label>旋回の分割ステップ (度)</label><input type="number" id="step" value="10" oninput="markAsChanged()"></div>
+          <div class="form-group"><label>直進の分割ステップ (m)</label><input type="number" id="stepStraight" value="" placeholder="自動" oninput="markAsChanged()"></div>
+          <div class="note">直進の分割ステップ: 空欄=自動(車長の約1/2)。直進の最初と最後は必ず描画します</div>
         </details>
         <!-- 走行 -->
         <div class="section sim-only">
           <h2 style="border:none; margin:0 0 5px 0;">走行設定</h2>
-          <div class="note">上から順に実行。「直進」は単位m。トレーラー後退時はAIによるフィードバック制御を使用できます</div>
+          <div class="note">番号の小さい方から順に実行<br>「直進」は単位m。トレーラー後退時はAIによるフィードバック制御を使用できます</div>
           <div id="stepsList" class="steps-list"></div>
           <button class="btn-add" onclick="addStep()">＋ ステップ追加</button>
         </div>
@@ -240,7 +243,7 @@
         <canvas id="canvas" width="800" height="800"></canvas>
       </div>
       
-      <div class="note" style="text-align:center; flex-shrink:0; line-height: 1.8;">
+      <div class="note" data-toast-avoid="1" style="text-align:center; flex-shrink:0; line-height: 1.8;">
         <span style="display:inline-block; padding:2px 6px; background:#222; border-radius:4px; margin:2px;"><span class="legend-icon-rect" style="background:#00ffaa;"></span>開始位置</span>
         <span style="display:inline-block; padding:2px 6px; background:#222; border-radius:4px; margin:2px;"><span class="legend-icon-rect" style="background:#ff8800;"></span>終了位置</span>
         <span style="display:inline-block; padding:2px 6px; background:#222; border-radius:4px; margin:2px;"><span class="legend-icon-rect" style="background:#ffcc00;"></span>途中経過</span>
@@ -253,10 +256,10 @@
         <span class="legend-line-solid" style="background:#ffcc00;"></span> = 寸法線
       </div>
       
-      <div class="result-box sim-only" id="resultBox">ステップを設定して「描画更新」を押してください</div>
+      <div class="result-box sim-only" id="resultBox" data-toast-avoid="1">ステップを設定して「描画更新」を押してください</div>
     </div>
   </div>
   
-  <script src="app_7.js"></script>
+  <script src="app_8.js"></script>
 </body>
 </html>

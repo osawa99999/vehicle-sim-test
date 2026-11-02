@@ -57,15 +57,42 @@ function toggleSilhouette(){
 
 // 通知制御
 let toastTimer = null;
-function showToast(msg, duration = 0) {
+function positionToast() {
+  const t = document.getElementById('toast');
+  const vh = window.innerHeight, gap = 8;
+  const ca = document.querySelector('.canvas-area').getBoundingClientRect();
+  t.style.left = (ca.left + ca.width / 2) + 'px';          // 中央=キャンバス領域の中央
+  t.style.top = 'auto';
+  let bottom = 14;
+  const h = t.offsetHeight, tr = t.getBoundingClientRect();
+  const obstacles = [...document.querySelectorAll('[data-toast-avoid]')]
+    .filter(el => el.offsetParent !== null).map(el => el.getBoundingClientRect())
+    .filter(r => r.height > 0 && r.right > tr.left && r.left < tr.right);
+  for (let k = 0; k < 8; k++) {                              // 下部の物と重なる間は、その上へずらす
+    const top = vh - bottom - h, bot = vh - bottom;
+    const hit = obstacles.filter(r => r.bottom > top && r.top < bot).sort((a, b) => a.top - b.top)[0];
+    if (!hit) break;
+    bottom = vh - hit.top + gap;
+  }
+  const tb = document.querySelector('.topbar').getBoundingClientRect();
+  if (vh - bottom - h < tb.bottom + gap) {                   // 下に収まらない場合は上部(上バーの下)へ
+    t.style.bottom = 'auto'; t.style.top = (tb.bottom + gap) + 'px';
+  } else {
+    t.style.bottom = bottom + 'px';
+  }
+}
+function showToast(msg, duration = 0, kind = '') {
   const toast = document.getElementById('toast');
   toast.innerHTML = msg;
+  toast.classList.toggle('info', kind === 'info');
   toast.classList.add('show');
+  positionToast();
   if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
   if (duration > 0) {
     toastTimer = setTimeout(hideToast, duration);
   }
 }
+window.addEventListener('resize', () => { if (document.getElementById('toast').classList.contains('show')) positionToast(); });
 function hideToast() {
   document.getElementById('toast').classList.remove('show');
 }
@@ -111,9 +138,42 @@ function validateInputs() {
     hideToast(); 
   }
 }
+// 設定変更後〜描画更新までは DXF/PNG 出力を押せなくする(クリック・ホバーで案内)
+function updateExportLock() {
+  const locked = (opMode === 'sim' && isDirty);
+  document.querySelectorAll('.btn-dxf, .btn-img').forEach(b => {
+    b.classList.toggle('btn-locked', locked);
+    b.setAttribute('aria-disabled', locked ? 'true' : 'false');
+  });
+  if (locked) document.getElementById('imgMenu').style.display = 'none';
+  else hideFloatTip();
+}
+function exportLocked() {
+  if (opMode === 'sim' && isDirty) { showToast('描画更新（軌跡再計算）をしてください', 2500, 'info'); return true; }
+  return false;
+}
+function toggleImgMenu() {
+  if (exportLocked()) return;
+  const m = document.getElementById('imgMenu');
+  m.style.display = (m.style.display === 'none') ? 'block' : 'none';
+}
+function hideFloatTip() { const f = document.getElementById('floatTip'); if (f) f.style.display = 'none'; }
+document.addEventListener('mouseover', (e) => {
+  const b = e.target.closest ? e.target.closest('.btn-dxf, .btn-img') : null;
+  if (!b || !b.classList.contains('btn-locked')) return;
+  const f = document.getElementById('floatTip'), r = b.getBoundingClientRect();
+  f.style.display = 'block';
+  f.style.left = Math.max(4, Math.min(window.innerWidth - f.offsetWidth - 4, r.left)) + 'px';
+  f.style.top = (r.bottom + 6) + 'px';
+});
+document.addEventListener('mouseout', (e) => {
+  const b = e.target.closest ? e.target.closest('.btn-dxf, .btn-img') : null;
+  if (b) hideFloatTip();
+});
 function markAsChanged() {
   if (opMode !== 'sim' || document.querySelector('.btn-draw').disabled) return;
   isDirty = true;
+  updateExportLock();
   document.getElementById('resultBox').innerHTML = '<span style="color:#ffcc00; font-weight:bold;">⚠ 値が変更されました。描画更新（軌跡再計算）ボタンを押してください。</span>';
 }
 
@@ -209,6 +269,7 @@ function onModeChange() {
   });
   document.querySelectorAll('.road-only').forEach(el => el.style.display = (opMode === 'road') ? 'block' : 'none');
   document.querySelectorAll('.top-sim').forEach(el => el.style.display = (opMode === 'sim') ? '' : 'none');   // 上部バーの軌跡モード用ボタン
+  updateExportLock();
   document.getElementById('tab-sim').classList.toggle('active', opMode === 'sim');
   document.getElementById('tab-road').classList.toggle('active', opMode === 'road');
   
@@ -279,7 +340,7 @@ function applyTrailerPreset(){
 const _applyVehiclePresetBase = applyVehiclePreset;
 applyVehiclePreset = function(){
   _applyVehiclePresetBase(); syncVehicleShapeUI();
-  if (window._shapeToast) { showToast(window._shapeToast, 3500); window._shapeToast = null; }   // 検証処理で消されないよう最後に表示
+  if (window._shapeToast) { showToast(window._shapeToast, 3500, 'info'); window._shapeToast = null; }   // 検証処理で消されないよう最後に表示
 };
 function initVehiclePresets(){
   const sel = document.getElementById('vehiclePreset');
@@ -303,16 +364,14 @@ function syncVehicleShapeUI(){
   document.getElementById('vehicleDimsSection').classList.toggle('shape-locked', chk.checked);
   // トレーラーの寸法は、トレーラーの絵がある場合だけ固定
   document.getElementById('trailerDimsRows').classList.toggle('shape-locked', chk.checked && isTr && hasTrailerShapeFor(tidx));
-  const vn = VEHICLE_PRESETS.filter(p => typeof VEHICLE_SHAPES !== 'undefined' && VEHICLE_SHAPES[p.short]).map(p => p.short).join(' / ');
-  const tn = TRAILER_PRESETS.filter(p => typeof TRAILER_SHAPES !== 'undefined' && TRAILER_SHAPES[p.key]).map(p => p.key).join(' / ');
-  let msg = '絵あり  車両: ' + (vn || 'なし') + (tn ? '  トレーラー: ' + tn : '');
+  let msg = '';
   if (chk.checked) {
-    if (!hasShapeFor(idx)) msg = '※この車種は絵が無いため、四角で出力されます\n' + msg;
-    else if (isTr && !hasTrailerShapeFor(tidx)) msg = '※このトレーラーは絵が無いため、四角で出力されます\n' + msg;
+    if (!hasShapeFor(idx)) msg = '※この車種は絵が無いため、四角で出力されます';
+    else if (isTr && !hasTrailerShapeFor(tidx)) msg = '※このトレーラーは絵が無いため、四角で出力されます';
   }
   const note = document.getElementById('shapeNote');
-  note.style.whiteSpace = 'pre-line';
   note.textContent = msg;
+  note.style.display = msg ? '' : 'none';
 }
 function onToggleVehicleShape(){
   const chk = document.getElementById('useVehicleShape');
@@ -320,7 +379,7 @@ function onToggleVehicleShape(){
   if (chk.checked) {
     if (isCustomPresetIdx(idx)) {
       chk.checked = false;
-      showToast('カスタム(手入力)では車両の絵を使用できません', 3500);
+      showToast('カスタム(手入力)では車両の絵を使用できません', 3500, 'info');
     } else {
       // 寸法を手で変えていても、プリセットの値に戻してから固定する
       const p = VEHICLE_PRESETS[idx];
@@ -333,7 +392,7 @@ function onToggleVehicleShape(){
         }
       }
       renderSilhouette();
-      showToast('車両画像を使用する場合は車両寸法の変更は出来ません', 3500);
+      showToast('車両画像を使用する場合は車両寸法の変更は出来ません', 3500, 'info');
     }
   }
   syncVehicleShapeUI();
@@ -702,6 +761,8 @@ function draw(){
   const baseCorners = getBaseCorners(WB, FOH, ROH, W);
   const stepDeg = Math.abs(Number(document.getElementById('step').value)) || 10;
   const renderIntervalDist = Math.max(1000, L / 2);
+  const _sv = Number(document.getElementById('stepStraight').value);
+  const straightInterval = (_sv > 0) ? Math.max(100, _sv * 1000) : renderIntervalDist;   // 空欄/0 = 自動(車長の1/2)
   const isTractor = currentSvgType === 'tractor';
   
   let hitchOffset = 0, trailerW = 0, trailerWB = 1, trailerROH = 0, trailerCorners = [];
@@ -883,7 +944,7 @@ function draw(){
         moveByCurvature(dsSigned, 0);
         recordPath();
         sinceRender += Math.abs(dsSigned);
-        if (sinceRender >= renderIntervalDist || i === nSub - 1){
+        if (sinceRender >= straightInterval || i === nSub - 1){   // 直進の最後は必ず描画(最初は直前ステップの終端)
           simSnapshots.push(cornersToGlobal(baseCorners, pose)); simPoses.push({x: pose.x, y: pose.y, phi: pose.phi});
           if (isTractor) { simTrailerSnapshots.push(trailerSnapshotAt(pose)); simTrailerPoses.push(trailerPoseAt(pose)); }
           simDirMeta.push({ isReverse: isRev });
@@ -924,6 +985,7 @@ function draw(){
                `<div><b>最終向き</b>: ${(normAngle(pose.phi) * 180 / Math.PI).toFixed(1)}°</div>` +
                trailerInfo + `<div><b>ステップ数</b>: ${steps.length}</div>`;
   isDirty = false;
+  updateExportLock();
   updateViewBox();
   redraw();
   
@@ -1296,6 +1358,7 @@ function drawFrontMarker(box, ctx, isReverse = false){
 
 function downloadImage(bgMode) {
   document.getElementById('imgMenu').style.display = 'none';
+  if (exportLocked()) return;
   if (isDirty && !confirm("変更値が軌跡に反映されていません。このまま保存してもよろしいですか？\n※描画更新後に保存する事をおススメします。")) return;
   
   const canvas = document.getElementById('canvas');
@@ -1332,7 +1395,13 @@ function downloadImage(bgMode) {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
 
+function jstStamp() {   // 端末のタイムゾーンに関係なく日本時間(UTC+9)
+  const d = new Date(Date.now() + 9 * 3600 * 1000);
+  const p = (n) => String(n).padStart(2, '0');
+  return p(d.getUTCFullYear() % 100) + p(d.getUTCMonth() + 1) + p(d.getUTCDate()) + p(d.getUTCHours()) + p(d.getUTCMinutes()) + p(d.getUTCSeconds());
+}
 function downloadDXF(){
+  if (exportLocked()) return;
   if (dxfLines.length === 0){ alert("先に描画を行ってください。"); return; }
   if (isDirty && !confirm("変更値が軌跡に反映されていません。このまま保存してもよろしいですか？\n※描画更新後に保存する事をおススメします。")) return;
   
@@ -1341,21 +1410,24 @@ function downloadDXF(){
     name, polys: [[1, corners.map(c => [Math.round(c.x * 100) / 100, Math.round(c.y * 100) / 100])]], hatches: [],
     lwByBlock: false, polyTrueColor: null, ltype: dashed ? 'DASHED' : null, ltscale: dashed ? 50 : null
   });
+  const ts = jstStamp();
+  const rn = (n) => n + '_' + ts;   // ブロック名の重複防止
   const defs = [];
   if (simShapeKey) {
     const sh = VEHICLE_SHAPES[simShapeKey];
     // 車両ブロック: 線=黒(真の色)・線幅ByBlock、本体ハッチ=ByBlock色、透過性=ByBlock
-    defs.push({name: 'VEHICLE_' + simShapeKey, polys: sh.p, hatches: sh.h, lwByBlock: true, polyTrueColor: 0});
+    defs.push({name: rn('VEHICLE_' + simShapeKey), polys: sh.p, hatches: sh.h, lwByBlock: true, polyTrueColor: 0});
   }
   if (dxfLines.some(i => i.type === 'INSERT' && i.name === 'VEHICLE_BOX') && simBlockDefs.vehicle.length >= 4)
-    defs.push(rectDef('VEHICLE_BOX', simBlockDefs.vehicle, !!simShapeKey));   // 絵があるときは点線の「位置を示す四角」
+    defs.push(rectDef(rn('VEHICLE_BOX'), simBlockDefs.vehicle, !!simShapeKey));   // 絵があるときは点線の「位置を示す四角」
   if (simTrailerShapeKey) {
     const tsh = TRAILER_SHAPES[simTrailerShapeKey];
-    defs.push({name: 'TRAILER_' + simTrailerShapeKey, polys: tsh.p, hatches: tsh.h, lwByBlock: true, polyTrueColor: 0});
+    defs.push({name: rn('TRAILER_' + simTrailerShapeKey), polys: tsh.p, hatches: tsh.h, lwByBlock: true, polyTrueColor: 0});
   }
   if (dxfLines.some(i => i.type === 'INSERT' && i.name === 'TRAILER_BOX') && simBlockDefs.trailer.length >= 4)
-    defs.push(rectDef('TRAILER_BOX', simBlockDefs.trailer, !!simTrailerShapeKey));
-  const dxf = buildDxf2004(dxfLines, defs);
+    defs.push(rectDef(rn('TRAILER_BOX'), simBlockDefs.trailer, !!simTrailerShapeKey));
+  const exportLines = dxfLines.map(i => i.type === 'INSERT' ? Object.assign({}, i, {name: rn(i.name)}) : i);
+  const dxf = buildDxf2004(exportLines, defs);
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([dxf], {type: "application/dxf"}));
   a.download = getExportFilename("dxf");
@@ -1498,7 +1570,7 @@ window.onload = function(){
   
   document.querySelector('.sidebar').addEventListener('input', (e) => {
     if (e.target.dataset && e.target.dataset.isNum === 'true') {   // 数値欄は 数字と - のみ
-      const c = e.target.value.replace(/[^0-9\-]/g, '');
+      const c = e.target.value.replace(/[^0-9.\-]/g, '');
       if (c !== e.target.value) e.target.value = c;
     }
     if (e.target.name !== 'opMode' && !(e.target.dataset && e.target.dataset.noDirty)) markAsChanged();

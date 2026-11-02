@@ -35,7 +35,7 @@ canvas{background:#000;border:1px solid #555;border-radius:4px;max-width:100%;ma
 .alert-box{background:#f04;color:#fff;padding:6px;border-radius:4px;font-weight:bold;text-align:center;margin-top:8px;font-size:.85rem;display:none}
 .alert-box.show{display:block;animation:shake .5s}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
-.toast-notify{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(255,0,68,.95);color:#fff;padding:12px 24px;border-radius:6px;font-weight:bold;font-size:1rem;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,.5);pointer-events:none;opacity:0;transition:opacity .3s;border:1px solid #f44;display:none;line-height:1.5;text-align:center;width:max-content;max-width:90vw;}
+.toast-notify{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:rgba(255,0,68,.95);color:#fff;padding:12px 24px;border-radius:6px;font-weight:bold;font-size:1rem;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,.5);pointer-events:none;opacity:0;transition:opacity .3s;border:1px solid #f44;display:none;line-height:1.5;text-align:center;width:max-content;max-width:90vw;}
 .toast-notify.show{opacity:1;display:block}
 .mode-tabs{display:flex;width:100%;border-radius:6px;overflow:hidden;border:1px solid #444;flex-shrink:0}
 .mode-tab{flex:1;text-align:center;padding:10px 0;background:#222;cursor:pointer;font-size:.95rem;font-weight:bold;color:#888;transition:background .2s,color .2s;user-select:none}
@@ -130,3 +130,11 @@ button:disabled{background:#555!important;color:#aaa!important;cursor:not-allowe
 .top-z{display:inline-flex;align-items:center}
 .img-wrap{position:relative}
 .topbar .disclaimer-bar{flex:1 1 360px;width:auto;max-width:none;margin:0;padding:4px 10px;font-size:.72rem;text-align:left;line-height:1.35}
+
+/* 警告文を枠内で中央寄せ */
+.topbar .disclaimer-bar{display:flex;align-items:center;justify-content:center;text-align:center}
+/* 案内トースト(橙) */
+.toast-notify.info{background:rgba(214,130,0,.96);border-color:#fc6}
+/* 描画更新待ちで出力ボタンをグレーアウト(クリック/ホバーで案内) */
+button.btn-locked{background:#555!important;color:#aaa!important;cursor:not-allowed!important}
+.float-tip{position:fixed;display:none;z-index:4000;background:rgba(214,130,0,.97);color:#fff;border:1px solid #fc6;border-radius:5px;padding:5px 10px;font-size:.8rem;font-weight:bold;pointer-events:none;box-shadow:0 3px 8px rgba(0,0,0,.5);white-space:nowrap}

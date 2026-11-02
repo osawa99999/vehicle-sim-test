@@ -4,15 +4,31 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="color-scheme" content="dark">
-  <title>車両軌跡シミュレーター＆DXFジェネレーター v0.053 (iPad最適化・完全版)</title>
-  <link rel="stylesheet" href="style_2.css">
-  <script src="data_1.js"></script>
-  <script src="vehicle_shapes.js"></script>
+  <title>車両軌跡シミュレーター＆DXFジェネレーター v0.055 (iPad最適化・完全版)</title>
+  <link rel="stylesheet" href="style_3.css">
+  <script src="data_2.js"></script>
+  <script src="vehicle_shapes_1.js"></script>
   <script src="dxf_writer_1.js"></script>
 </head>
 <body>
   <div id="toast" class="toast-notify"></div>
-  <div class="disclaimer-bar">⚠ 本ツールは簡易シミュレーターです。車両寸法や回転半径は一般的な参考値であり、実車の正確な数値ではありません。<br>実際の安全確認は現場責任者の判断で行ってください。※本ツールの利用による事故・損害等の責任は一切負いかねます。</div>
+  <div class="topbar">
+    <div class="topbar-ctrl">
+      <div class="img-wrap">
+        <button class="btn-img" onclick="document.getElementById('imgMenu').style.display = document.getElementById('imgMenu').style.display === 'none' ? 'block' : 'none'">画像出力 (PNG)</button>
+        <div id="imgMenu" style="display:none; position:absolute; top:calc(100% + 5px); left:0; width:230px; background:#222; border:1px solid #555; border-radius:6px; padding:6px; box-sizing:border-box; box-shadow:0 4px 10px rgba(0,0,0,0.5); z-index:100;">
+          <div style="display:flex; gap:6px;">
+            <button onclick="downloadImage('black')" style="background:#111; color:#fff; border:1px solid #444; flex:1; padding:8px;">背景:黒</button>
+            <button onclick="downloadImage('white')" style="background:#eee; color:#111; border:none; flex:1; padding:8px;">背景:白(反転)</button>
+          </div>
+        </div>
+      </div>
+      <button class="btn-dxf" onclick="downloadDXF()">DXFファイル出力</button>
+      <span class="top-sim top-z"><label for="zOrder">重なり順（前面）</label><select id="zOrder" data-no-dirty="1" onchange="redraw()"><option value="end">終了位置が前面</option><option value="start">スタート位置が前面</option></select></span>
+      <button class="btn-draw top-sim" onclick="draw()">描画更新 (軌跡再計算)</button>
+    </div>
+      <div class="disclaimer-bar">⚠ 本ツールは簡易シミュレーターです。車両寸法や回転半径は一般的な参考値であり、実車の正確な数値ではありません。<br>実際の安全確認は現場責任者の判断で行ってください。※本ツールの利用による事故・損害等の責任は一切負いかねます。</div>
+  </div>
   
   <div class="wrap">
     <div class="sidebar" id="sidebarArea">
@@ -23,7 +39,7 @@
           <div style="display:flex; flex-direction:column; gap:2px; flex:1; min-width:0;">
             <span style="font-size: 1.1rem; font-weight: bold; line-height: 1.2; white-space: nowrap;">車両軌跡<b style="color:#ffaa00; font-size:1.1rem;">簡易</b>シミュレーター</span>
             <div style="display:flex; align-items:center; gap:6px;">
-              <span style="font-size: 0.75rem; color: #888; font-weight: normal; line-height: 1;">v0.053</span>
+              <span style="font-size: 0.75rem; color: #888; font-weight: normal; line-height: 1;">v0.055</span>
               <img src="https://hits.sh/osaki-kensetsu.github.io/vehicle-simulator.svg?style=flat-square&label=VISITS&color=007acc&labelColor=222222" alt="visits" style="height:12px;opacity:.8;color-scheme:light;" onerror="this.style.display='none'">
             </div>
           </div>
@@ -73,10 +89,12 @@
           <summary>荷台部分 (トレーラー)</summary>
           <div id="trailerFields">
             <div class="form-group"><label>プリセット</label><select id="trailerPreset" onchange="applyTrailerPreset()"></select></div>
+            <div id="trailerDimsRows">
             <div class="form-group"><label>連結点オフセット(後軸から)</label><input type="number" id="hitchOffset" value="0" oninput="onInputVehicle()"></div>
             <div class="form-group"><label>トレーラー全幅(mm)</label><input type="number" id="trailerW" value="2490" oninput="markAsChanged()"></div>
             <div class="form-group"><label>連結点〜トレーラー軸中心</label><input type="number" id="trailerWB" value="9000" oninput="onInputVehicle()"></div>
             <div class="form-group"><label>トレーラー後端OH</label><input type="number" id="trailerROH" value="1500" oninput="onInputVehicle()"></div>
+            </div>
           </div>
         </details>
         <details class="section sim-only">
@@ -100,22 +118,6 @@
           <div id="stepsList" class="steps-list"></div>
           <button class="btn-add" onclick="addStep()">＋ ステップ追加</button>
         </div>
-      </div>
-
-      <!-- 下部固定エリア -->
-      <div class="sidebar-bottom">
-        <button class="btn-draw sim-only" onclick="draw()">描画更新 (軌跡再計算)</button>
-        <div style="position:relative; width:100%;">
-          <div id="imgMenu" style="display:none; position:absolute; bottom:calc(100% + 5px); left:0; width:100%; background:#222; border:1px solid #555; border-radius:6px; padding:6px; box-sizing:border-box; box-shadow:0 -4px 10px rgba(0,0,0,0.5); z-index:100;">
-            <div style="display:flex; gap:6px;">
-              <button onclick="downloadImage('black')" style="background:#111; color:#fff; border:1px solid #444; flex:1; padding:8px;">背景:黒</button>
-              <button onclick="downloadImage('white')" style="background:#eee; color:#111; border:none; flex:1; padding:8px;">背景:白(反転)</button>
-            </div>
-          </div>
-          <button class="btn-img" onclick="document.getElementById('imgMenu').style.display = document.getElementById('imgMenu').style.display === 'none' ? 'block' : 'none'">画像出力 (PNG)</button>
-        </div>
-        <div class="form-group" style="margin-bottom:0;"><label>重なり順（前面）</label><select id="zOrder" data-no-dirty="1" onchange="redraw()"><option value="end">終了位置が前面</option><option value="start">スタート位置が前面</option></select></div>
-        <button class="btn-dxf" onclick="downloadDXF()">DXFファイル出力</button>
       </div>
 
     </div>
@@ -255,6 +257,6 @@
     </div>
   </div>
   
-  <script src="app_5.js"></script>
+  <script src="app_7.js"></script>
 </body>
 </html>

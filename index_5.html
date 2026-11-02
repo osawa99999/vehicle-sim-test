@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="color-scheme" content="dark">
+  <title>車両軌跡シミュレーター＆DXFジェネレーター v0.053 (iPad最適化・完全版)</title>
+  <link rel="stylesheet" href="style_2.css">
+  <script src="data_1.js"></script>
+  <script src="vehicle_shapes.js"></script>
+  <script src="dxf_writer_1.js"></script>
+</head>
+<body>
+  <div id="toast" class="toast-notify"></div>
+  <div class="disclaimer-bar">⚠ 本ツールは簡易シミュレーターです。車両寸法や回転半径は一般的な参考値であり、実車の正確な数値ではありません。<br>実際の安全確認は現場責任者の判断で行ってください。※本ツールの利用による事故・損害等の責任は一切負いかねます。</div>
+  
+  <div class="wrap">
+    <div class="sidebar" id="sidebarArea">
+      <!-- 上部固定エリア -->
+      <div class="sidebar-top">
+        <h2>
+          <img id="logo-img" alt="logo" style="height:24px; width:auto; border-radius:3px; flex-shrink:0;">
+          <div style="display:flex; flex-direction:column; gap:2px; flex:1; min-width:0;">
+            <span style="font-size: 1.1rem; font-weight: bold; line-height: 1.2; white-space: nowrap;">車両軌跡<b style="color:#ffaa00; font-size:1.1rem;">簡易</b>シミュレーター</span>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size: 0.75rem; color: #888; font-weight: normal; line-height: 1;">v0.053</span>
+              <img src="https://hits.sh/osaki-kensetsu.github.io/vehicle-simulator.svg?style=flat-square&label=VISITS&color=007acc&labelColor=222222" alt="visits" style="height:12px;opacity:.8;color-scheme:light;" onerror="this.style.display='none'">
+            </div>
+          </div>
+        </h2>
+        <div class="mode-tabs">
+          <label class="mode-tab active" id="tab-sim">
+            <input type="radio" name="opMode" value="sim" checked onchange="onModeChange()"> 軌跡モード
+          </label>
+          <label class="mode-tab" id="tab-road">
+            <input type="radio" name="opMode" value="road" onchange="onModeChange()"> 道路描画モード
+          </label>
+        </div>
+        <div id="roadUI" class="road-only" style="display:none; background: #1a2a3a; padding: 12px; border-radius: 6px; border: 1px solid #00aaff;">
+          <div class="note" style="color:#7fd3ff; margin-bottom:5px;">
+            キャンバスをドラッグして道路（2本線）を引けます。<br>
+            <b>💡 引いた道路や<span style="color:#ffcc00;">寸法線</span>をドラッグして移動可能</b><br>
+            ※道路や寸法線を<b>長押し(または右クリック)</b>で削除
+          </div>
+          <div class="note" style="color:#ffaa00; margin-bottom:10px; font-weight:bold;">※この機能は道路幅のイメージ線を適当に描くだけの機能です。必要に応じてCADで修正してください。</div>
+          <div class="form-group" style="margin-bottom:0;"><label style="color:#fff;">道路幅 (mm)</label><input type="number" id="roadWidth" value="4000"></div>
+        </div>
+      </div>
+
+      <!-- スクロールエリア -->
+      <div class="sidebar-scroll">
+        <!-- 車種 -->
+        <div class="section sim-only">
+          <h2 style="border:none; margin:0 0 5px 0;">車種プリセット</h2>
+          <select id="vehiclePreset" onchange="applyVehiclePreset()" style="width:100%; font-size:0.95rem; padding:8px;"></select>
+        </div>
+        <!-- 車両の絵 -->
+        <div class="section sim-only">
+          <label style="display:flex;align-items:center;gap:8px;font-size:.95rem;font-weight:bold;color:#0af;cursor:pointer;"><input type="checkbox" id="useVehicleShape" onchange="onToggleVehicleShape()" style="width:auto;flex:0 0 auto;"> 車両の絵を使う</label>
+          <div class="note" id="shapeNote" style="margin:6px 0 0 0;"></div>
+        </div>
+        <!-- 寸法 -->
+        <details class="section sim-only" id="vehicleDimsSection">
+          <summary>車両寸法 (mm)</summary>
+          <div class="note">プリセットは代表値です。正確な検証には車検証等を確認してください</div>
+          <div class="form-group"><label>全長 (L)</label><input type="number" id="L" value="4995" oninput="onInputVehicle()"></div>
+          <div class="form-group"><label>全幅 (W)</label><input type="number" id="W" value="1850" oninput="onInputVehicle()"></div>
+          <div class="form-group"><label>ホイールベース (WB)</label><input type="number" id="WB" value="3000" oninput="onInputVehicle()"></div>
+          <div class="form-group"><label>フロントオーバーハング (FOH)</label><input type="number" id="FOH" value="955" oninput="onInputVehicle()"></div>
+        </details>
+        <!-- 荷台 -->
+        <details class="section sim-only" id="trailerSectionWrap" style="display:none;">
+          <summary>荷台部分 (トレーラー)</summary>
+          <div id="trailerFields">
+            <div class="form-group"><label>プリセット</label><select id="trailerPreset" onchange="applyTrailerPreset()"></select></div>
+            <div class="form-group"><label>連結点オフセット(後軸から)</label><input type="number" id="hitchOffset" value="0" oninput="onInputVehicle()"></div>
+            <div class="form-group"><label>トレーラー全幅(mm)</label><input type="number" id="trailerW" value="2490" oninput="markAsChanged()"></div>
+            <div class="form-group"><label>連結点〜トレーラー軸中心</label><input type="number" id="trailerWB" value="9000" oninput="onInputVehicle()"></div>
+            <div class="form-group"><label>トレーラー後端OH</label><input type="number" id="trailerROH" value="1500" oninput="onInputVehicle()"></div>
+          </div>
+        </details>
+        <details class="section sim-only">
+          <summary>旋回性能</summary>
+          <div class="form-group" id="steerModeGroup"><label>操舵モード</label><select id="steerMode" onchange="onSteerModeChange()">
+            <option value="2ws">2輪操舵(標準)</option>
+            <option value="4ws">4輪操舵・逆位相(ラフター等)</option>
+          </select></div>
+          <div class="note" id="steerModeNote" style="display:none;">4輪操舵(逆位相)は旋回中心が車体中心(WB/2)に来るため、後部オーバーハングが外側に大きく振り出されます</div>
+          <div class="form-group"><label>最小回転半径 (R)</label><input type="number" id="R" value="5900" oninput="validateInputs()"></div>
+          <div class="form-group"><label>トレッド幅 (近似値)</label><input type="number" id="TR" value="1600" oninput="validateInputs()"></div>
+        </details>
+        <details class="section sim-only">
+          <summary>描画設定</summary>
+          <div class="form-group"><label>旋回の分割ステップ (度)</label><input type="number" id="step" value="10" oninput="markAsChanged()"></div>
+        </details>
+        <!-- 走行 -->
+        <div class="section sim-only">
+          <h2 style="border:none; margin:0 0 5px 0;">走行設定</h2>
+          <div class="note">上から順に実行。「直進」は単位m。トレーラー後退時はAIによるフィードバック制御を使用できます</div>
+          <div id="stepsList" class="steps-list"></div>
+          <button class="btn-add" onclick="addStep()">＋ ステップ追加</button>
+        </div>
+      </div>
+
+      <!-- 下部固定エリア -->
+      <div class="sidebar-bottom">
+        <button class="btn-draw sim-only" onclick="draw()">描画更新 (軌跡再計算)</button>
+        <div style="position:relative; width:100%;">
+          <div id="imgMenu" style="display:none; position:absolute; bottom:calc(100% + 5px); left:0; width:100%; background:#222; border:1px solid #555; border-radius:6px; padding:6px; box-sizing:border-box; box-shadow:0 -4px 10px rgba(0,0,0,0.5); z-index:100;">
+            <div style="display:flex; gap:6px;">
+              <button onclick="downloadImage('black')" style="background:#111; color:#fff; border:1px solid #444; flex:1; padding:8px;">背景:黒</button>
+              <button onclick="downloadImage('white')" style="background:#eee; color:#111; border:none; flex:1; padding:8px;">背景:白(反転)</button>
+            </div>
+          </div>
+          <button class="btn-img" onclick="document.getElementById('imgMenu').style.display = document.getElementById('imgMenu').style.display === 'none' ? 'block' : 'none'">画像出力 (PNG)</button>
+        </div>
+        <div class="form-group" style="margin-bottom:0;"><label>重なり順（前面）</label><select id="zOrder" data-no-dirty="1" onchange="redraw()"><option value="end">終了位置が前面</option><option value="start">スタート位置が前面</option></select></div>
+        <button class="btn-dxf" onclick="downloadDXF()">DXFファイル出力</button>
+      </div>
+
+    </div>
+    
+    <div class="canvas-area">
+      <!-- テンキー -->
+      <div id="numpad" class="numpad-container">
+        <div class="numpad-header" id="numpadHeader">
+          <span>数値入力</span>
+          <button class="close-btn" onclick="hideNumpad()">×</button>
+        </div>
+        <div class="numpad-grid">
+          <button class="numpad-btn" onclick="inputNumpad('7')">7</button>
+          <button class="numpad-btn" onclick="inputNumpad('8')">8</button>
+          <button class="numpad-btn" onclick="inputNumpad('9')">9</button>
+          <button class="numpad-btn" onclick="inputNumpad('4')">4</button>
+          <button class="numpad-btn" onclick="inputNumpad('5')">5</button>
+          <button class="numpad-btn" onclick="inputNumpad('6')">6</button>
+          <button class="numpad-btn" onclick="inputNumpad('1')">1</button>
+          <button class="numpad-btn" onclick="inputNumpad('2')">2</button>
+          <button class="numpad-btn" onclick="inputNumpad('3')">3</button>
+          <button class="numpad-btn" onclick="inputNumpad('0')">0</button>
+          <button class="numpad-btn" onclick="inputNumpad('00')">00</button>
+          <button class="numpad-btn enter tall" onclick="hideNumpad()">決<br>定</button>
+          <button class="numpad-btn cmd" onclick="inputNumpad('-')">-</button>
+          <button class="numpad-btn cmd" onclick="inputNumpad('C')">C</button>
+        </div>
+      </div>
+      
+      <!-- 長押しコンテキストメニュー -->
+      <div id="contextMenu" class="context-menu">
+        <button id="ctx-btn-dim" onclick="ctxActionDeleteDim()">📏 寸法線を消す</button>
+        <button id="ctx-btn-road" class="danger" onclick="ctxActionDeleteRoad()">🗑 道路を消す</button>
+      </div>
+
+      <button class="silhouette-toggle" id="silToggleBtn" onclick="toggleSilhouette()">形状プレビューを隠す</button>
+      <div class="silhouette-box" id="silhouetteBox">
+        <svg id="silSvg" viewBox="0 0 800 400">
+          <defs>
+            <marker id="arr-start" markerWidth="6" markerHeight="6" refX="0" refY="3" orient="auto"><path d="M 6 0 L 0 3 L 6 6 Z" fill="#00aaff" /></marker>
+            <marker id="arr-end" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M 0 0 L 6 3 L 0 6 Z" fill="#00aaff" /></marker>
+            <marker id="arr-start-purple" markerWidth="6" markerHeight="6" refX="0" refY="3" orient="auto"><path d="M 6 0 L 0 3 L 6 6 Z" fill="#cc66ff" /></marker>
+            <marker id="arr-end-purple" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M 0 0 L 6 3 L 0 6 Z" fill="#cc66ff" /></marker>
+          </defs>
+          <line x1="20" y1="260" x2="780" y2="260" class="ground" />
+          <line id="line-rear" y1="60" y2="390" class="guide-line" />
+          <line id="line-front" y1="60" y2="390" class="guide-line" />
+          <line id="dim-l-line" class="dim-line" marker-start="url(#arr-start)" marker-end="url(#arr-end)" />
+          <text id="dim-l-txt" class="dim-text">L</text>
+          <line id="dim-wb-line" class="dim-line" marker-start="url(#arr-start)" marker-end="url(#arr-end)" />
+          <text id="dim-wb-txt" class="dim-text">WB</text>
+          <line id="dim-foh-line" class="dim-line" marker-start="url(#arr-start)" marker-end="url(#arr-end)" />
+          <text id="dim-foh-txt" class="dim-text">FOH</text>
+          <line id="dim-roh-line" class="dim-line" marker-start="url(#arr-start)" marker-end="url(#arr-end)" />
+          <text id="dim-roh-txt" class="dim-text">ROH</text>
+          <g id="trailer-dims" class="hide">
+            <line id="dim-twb-line" class="dim-line" stroke="#cc66ff" marker-start="url(#arr-start-purple)" marker-end="url(#arr-end-purple)" />
+            <text id="dim-twb-txt" class="dim-text" fill="#cc66ff">TWB</text>
+            <line id="dim-troh-line" class="dim-line" stroke="#cc66ff" marker-start="url(#arr-start-purple)" marker-end="url(#arr-end-purple)" />
+            <text id="dim-troh-txt" class="dim-text" fill="#cc66ff">TROH</text>
+          </g>
+          <g id="truck-wrapper" class="truck-group">
+            <circle id="cg-mark" class="cg-marker" r="8" />
+            <path id="cg-cross1" stroke="#000" stroke-width="1.5" />
+            <path id="cg-cross2" stroke="#000" stroke-width="1.5" />
+            <g id="layer-car" class="hide">
+              <path id="car-body" class="c-blue" />
+              <circle id="car-tire-r" class="tire" />
+              <circle id="car-tire-f" class="tire" />
+            </g>
+            <g id="layer-truck" class="hide">
+              <rect id="truck-bed" class="c-blue" />
+              <path id="truck-cab" class="c-cab" />
+              <circle id="truck-tire-r1" class="tire" />
+              <circle id="truck-tire-r2" class="tire" />
+              <circle id="truck-tire-f" class="tire" />
+            </g>
+            <g id="layer-dump" class="hide">
+              <rect id="dump-bed" class="c-green" />
+              <path id="dump-lines" class="c-green" stroke-width="1.5" />
+              <path id="dump-cab" class="c-cab" />
+              <circle id="dump-tire-r1" class="tire" />
+              <circle id="dump-tire-r2" class="tire" />
+              <circle id="dump-tire-f" class="tire" />
+            </g>
+            <g id="layer-mixer" class="hide">
+              <rect id="mix-subframe" class="c-purple" />
+              <polygon id="mix-hop" class="c-purple" />
+              <path id="mix-drum" class="c-purple" />
+              <polygon id="mix-shoot" class="c-purple" />
+              <rect id="mix-tank" class="c-purple" />
+              <path id="mix-cab" class="c-cab" />
+              <circle id="mix-tire-r1" class="tire" />
+              <circle id="mix-tire-r2" class="tire" />
+              <circle id="mix-tire-f" class="tire" />
+            </g>
+            <g id="layer-tractor" class="hide">
+              <rect id="trac-trailer-bed" class="c-purple hide" />
+              <circle id="trac-trailer-tire1" class="tire hide" />
+              <circle id="trac-trailer-tire2" class="tire hide" />
+              <rect id="trac-frame" class="c-blue" />
+              <circle id="trac-coupler" class="joint" r="6" />
+              <path id="trac-cab" class="c-cab" />
+              <circle id="trac-tire-r" class="tire" />
+              <circle id="trac-tire-f" class="tire" />
+            </g>
+            <g id="layer-roughter" class="hide">
+              <path id="rg-body" class="c-yellow" />
+              <path id="rg-cab" class="c-cab" />
+              <polygon id="rg-boom" fill="rgba(255,200,0,0.3)" stroke="#ffcc00" stroke-width="2" />
+              <circle id="rg-tire-r" class="tire-lg" />
+              <circle id="rg-tire-f" class="tire-lg" />
+            </g>
+          </g>
+        </svg>
+        <div id="sil-alert-msg" class="alert-box"></div>
+      </div>
+      
+      <div class="canvas-wrap">
+        <canvas id="canvas" width="800" height="800"></canvas>
+      </div>
+      
+      <div class="note" style="text-align:center; flex-shrink:0; line-height: 1.8;">
+        <span style="display:inline-block; padding:2px 6px; background:#222; border-radius:4px; margin:2px;"><span class="legend-icon-rect" style="background:#00ffaa;"></span>開始位置</span>
+        <span style="display:inline-block; padding:2px 6px; background:#222; border-radius:4px; margin:2px;"><span class="legend-icon-rect" style="background:#ff8800;"></span>終了位置</span>
+        <span style="display:inline-block; padding:2px 6px; background:#222; border-radius:4px; margin:2px;"><span class="legend-icon-rect" style="background:#ffcc00;"></span>途中経過</span>
+        <span style="display:inline-block; padding:2px 6px; background:#222; border-radius:4px; margin:2px;"><span class="legend-icon-fwd"></span>前進</span>
+        <span style="display:inline-block; padding:2px 6px; background:#222; border-radius:4px; margin:2px;"><span class="legend-icon-rev"></span>後退</span>
+        <br>
+        実線+ <span class="legend-line-solid" style="background:#00ffff;"></span> = 牽引車　
+        点線+ <span class="legend-line-dash" style="border-color:#ff66cc;"></span> = トレーラー　
+        <span class="legend-line-solid" style="background:#ffffff;"></span> = 道路　
+        <span class="legend-line-solid" style="background:#ffcc00;"></span> = 寸法線
+      </div>
+      
+      <div class="result-box sim-only" id="resultBox">ステップを設定して「描画更新」を押してください</div>
+    </div>
+  </div>
+  
+  <script src="app_5.js"></script>
+</body>
+</html>

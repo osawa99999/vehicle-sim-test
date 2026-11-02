@@ -5,6 +5,8 @@ let simSnapshots = [];
 let simTrailerSnapshots = [];
 let simPoses = [];            // 各スナップショットの後軸中心ポーズ {x,y,phi}
 let simTrailerPoses = [];     // トレーラー側ポーズ
+let simVehDims = null;        // 矢印用: 車体寸法(後軸中心原点)
+let simShapeKey = null;       // 車両の絵を使う場合の車種キー(VEHICLE_SHAPESのキー)
 let simBlockDefs = {vehicle: [], trailer: []}; // ブロック定義用のローカル四隅(後軸中心原点)
 let simPathPoints = [[], [], [], []];
 let simTrailerPathPoints = [[], [], [], []];
@@ -133,8 +135,8 @@ function inputNumpad(key) {
   if (!activeInput) return;
   let val = activeInput.value.toString();
   if (key === 'C') val = '';
-  else if (key === 'BS') val = val.slice(0, -1);
-  else val += key;
+  else if (key === '-') val = val.startsWith('-') ? val.slice(1) : '-' + val;   // 符号の切り替え
+  else val += key;                                                                // 0-9 / 00
   activeInput.value = val;
   activeInput.dispatchEvent(new Event('input', { bubbles: true }));
 }
@@ -269,6 +271,12 @@ function applyTrailerPreset(){
   renderSilhouette();
   markAsChanged();
 }
+// applyVehiclePreset の後に絵のUI表示を同期
+const _applyVehiclePresetBase = applyVehiclePreset;
+applyVehiclePreset = function(){
+  _applyVehiclePresetBase(); syncVehicleShapeUI();
+  if (window._shapeToast) { showToast(window._shapeToast, 3500); window._shapeToast = null; }   // 検証処理で消されないよう最後に表示
+};
 function initVehiclePresets(){
   const sel = document.getElementById('vehiclePreset');
   VEHICLE_PRESETS.forEach((p, i) => {
@@ -279,9 +287,45 @@ function initVehiclePresets(){
   });
   applyVehiclePreset();
 }
+// ---- 車両の絵を使う: 使用中は車両寸法を固定(非表示) ----
+function isCustomPresetIdx(idx){ const p = VEHICLE_PRESETS[idx]; return !p || p.short === 'Custom'; }
+function hasShapeFor(idx){ const p = VEHICLE_PRESETS[idx]; return !!(p && typeof VEHICLE_SHAPES !== 'undefined' && VEHICLE_SHAPES[p.short]); }
+function syncVehicleShapeUI(){
+  const chk = document.getElementById('useVehicleShape');
+  const idx = Number(document.getElementById('vehiclePreset').value) || 0;
+  document.getElementById('vehicleDimsSection').classList.toggle('shape-locked', chk.checked);
+  const note = document.getElementById('shapeNote');
+  const names = VEHICLE_PRESETS.filter(p => typeof VEHICLE_SHAPES !== 'undefined' && VEHICLE_SHAPES[p.short]).map(p => p.short).join(' / ');
+  note.textContent = chk.checked && !hasShapeFor(idx)
+    ? '※この車種はまだ絵が無いため、四角で出力されます（絵あり: ' + (names || 'なし') + '）'
+    : '絵あり: ' + (names || 'なし');
+}
+function onToggleVehicleShape(){
+  const chk = document.getElementById('useVehicleShape');
+  const idx = Number(document.getElementById('vehiclePreset').value) || 0;
+  if (chk.checked) {
+    if (isCustomPresetIdx(idx)) {
+      chk.checked = false;
+      showToast('カスタム(手入力)では車両の絵を使用できません', 3500);
+    } else {
+      // 寸法を手で変えていても、プリセットの値に戻してから固定する
+      const p = VEHICLE_PRESETS[idx];
+      ['L', 'W', 'WB', 'FOH'].forEach(k => { document.getElementById(k).value = p[k]; });
+      renderSilhouette();
+      showToast('車両画像を使用する場合は車両寸法の変更は出来ません', 3500);
+    }
+  }
+  syncVehicleShapeUI();
+  markAsChanged();
+}
 function applyVehiclePreset(){
   const idx = Number(document.getElementById('vehiclePreset').value) || 0;
   const p = VEHICLE_PRESETS[idx];
+  { const chk = document.getElementById('useVehicleShape');
+    if (chk && chk.checked && isCustomPresetIdx(idx)) {   // カスタムは寸法を編集するため、絵の使用を解除
+      chk.checked = false;
+      window._shapeToast = 'カスタム(手入力)では車両の絵を使用できないため、解除しました';
+    } }
   document.getElementById('L').value = p.L;
   document.getElementById('W').value = p.W;
   document.getElementById('WB').value = p.WB;
@@ -347,7 +391,7 @@ function addStep(dir='forward', steer='right', value=90){
         <option value="left" ${steer==='left'?'selected':''}>左旋回</option>
         <option value="straight" ${steer==='straight'?'selected':''}>直進</option>
       </select>
-      <input type="number" class="s-val step-val" data-is-num="true" value="${value}">
+      <input type="text" inputmode="none" class="s-val step-val" data-is-num="true" value="${value}">
       <span class="step-unit" style="flex-shrink:0; font-size:0.75rem;">度</span>
       <button class="btn-remove step-rm" onclick="removeStep(this)">×</button>
     </div>
@@ -358,7 +402,7 @@ function addStep(dir='forward', steer='right', value=90){
       </label>
       <div class="fb-detail step-fb-det">
         値の意味が「トラクタの旋回角度」→「<b>トレーラー(荷台)の目標回転角度</b>」に変わります。<br>
-        目標連結角(安全マージン): <input type="number" class="s-psimax step-fb-inp" data-is-num="true" value="40">度
+        目標連結角(安全マージン): <input type="text" inputmode="none" class="s-psimax step-fb-inp" data-is-num="true" value="40">度
       </div>
     </div>
   `;
@@ -724,6 +768,15 @@ function draw(){
   }
 
   simBlockDefs = {vehicle: baseCorners.map(c => ({x: c.x, y: c.y})), trailer: isTractor ? trailerCorners.map(c => ({x: c.x, y: c.y})) : []};
+  {
+    const _pi = Number(document.getElementById('vehiclePreset').value) || 0;
+    const _p = VEHICLE_PRESETS[_pi];
+    const _chk = document.getElementById('useVehicleShape');
+    const _hasShape = (typeof VEHICLE_SHAPES !== 'undefined') && _p && VEHICLE_SHAPES[_p.short];
+    // 寸法をプリセットから変更している場合は絵を使わない(絵は固定寸法のため)
+    simShapeKey = (_hasShape && _chk && _chk.checked && L === _p.L && W === _p.W && WB === _p.WB && FOH === _p.FOH) ? _p.short : null;
+  }
+  simVehDims = {front: WB + FOH, rear: -(L - WB - FOH), W: W, L: L};
   simSnapshots = [cornersToGlobal(baseCorners, pose)];
   simPoses = [{x: pose.x, y: pose.y, phi: pose.phi}];
   simTrailerSnapshots = isTractor ? [trailerSnapshotAt(pose)] : [];
@@ -803,7 +856,7 @@ function draw(){
         sinceRender += Math.abs(dsSigned);
         if (sinceRender >= renderIntervalDist || i === nSub - 1){
           simSnapshots.push(cornersToGlobal(baseCorners, pose)); simPoses.push({x: pose.x, y: pose.y, phi: pose.phi});
-          if (isTractor) simTrailerSnapshots.push(trailerSnapshotAt(pose)); simTrailerPoses.push(trailerPoseAt(pose));
+          if (isTractor) { simTrailerSnapshots.push(trailerSnapshotAt(pose)); simTrailerPoses.push(trailerPoseAt(pose)); }
           simDirMeta.push({ isReverse: isRev });
           sinceRender = 0;
         }
@@ -822,7 +875,7 @@ function draw(){
         sinceRenderDeg += angleDeg / nSub;
         if (sinceRenderDeg >= stepDeg || i === nSub - 1){
           simSnapshots.push(cornersToGlobal(baseCorners, pose)); simPoses.push({x: pose.x, y: pose.y, phi: pose.phi});
-          if (isTractor) simTrailerSnapshots.push(trailerSnapshotAt(pose)); simTrailerPoses.push(trailerPoseAt(pose));
+          if (isTractor) { simTrailerSnapshots.push(trailerSnapshotAt(pose)); simTrailerPoses.push(trailerPoseAt(pose)); }
           simDirMeta.push({ isReverse: isRev });
           sinceRenderDeg = 0;
         }
@@ -995,6 +1048,81 @@ function drawRoad(r, ctx, isPreview = false, roadHovered = false, dimHovered = f
     }
   }
 }
+
+// ---- 車両の絵(プレビュー描画) ----
+const _shapeCache = {};
+function _bulgeArc(path, x1, y1, x2, y2, b){
+  const dx = x2 - x1, dy = y2 - y1, c = Math.hypot(dx, dy);
+  if (c < 1e-9) return;
+  const th = 4 * Math.atan(b), ath = Math.abs(th);
+  const r = c / (2 * Math.sin(ath / 2));
+  const sgn = b > 0 ? 1 : -1;
+  const d = r * Math.cos(ath / 2);
+  const cx = (x1 + x2) / 2 + sgn * (-dy / c) * d;
+  const cy = (y1 + y2) / 2 + sgn * (dx / c) * d;
+  path.arc(cx, cy, r, Math.atan2(y1 - cy, x1 - cx), Math.atan2(y2 - cy, x2 - cx), b < 0);
+}
+function getShapeCache(key){
+  if (_shapeCache[key]) return _shapeCache[key];
+  const sh = (typeof VEHICLE_SHAPES !== 'undefined') ? VEHICLE_SHAPES[key] : null;
+  if (!sh) return null;
+  const fills = sh.h.map(h => {
+    const p = new Path2D();
+    h[1].forEach(lp => { lp.forEach((v, i) => i ? p.lineTo(v[0], v[1]) : p.moveTo(v[0], v[1])); p.closePath(); });
+    const rgb = h[0][0];
+    const col = rgb < 0 ? 'rgba(0,170,255,0.7)' : `rgba(${(rgb >> 16) & 255},${(rgb >> 8) & 255},${rgb & 255},0.7)`;
+    return {p, col};
+  });
+  const line = new Path2D();
+  sh.p.forEach(pl => {
+    const closed = pl[0], v = pl[1];
+    line.moveTo(v[0][0], v[0][1]);
+    for (let i = 1; i < v.length; i++) {
+      const a = v[i-1], q = v[i];
+      if (a[2]) _bulgeArc(line, a[0], a[1], q[0], q[1], a[2]); else line.lineTo(q[0], q[1]);
+    }
+    if (closed) {
+      const a = v[v.length-1], q = v[0];
+      if (a[2]) _bulgeArc(line, a[0], a[1], q[0], q[1], a[2]); else line.lineTo(q[0], q[1]);
+    }
+  });
+  return (_shapeCache[key] = {fills, line});
+}
+function drawVehicleShape(ctx, pose, key){
+  const sc = getShapeCache(key);
+  if (!sc || !pose) return;
+  ctx.save();
+  ctx.translate(pose.x, pose.y); ctx.rotate(pose.phi);
+  sc.fills.forEach(f => { ctx.fillStyle = f.col; ctx.fill(f.p, 'evenodd'); });
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1 / viewScale;
+  ctx.stroke(sc.line);
+  ctx.restore();
+}
+
+
+// 進行方向の矢印(車体中央の軸上)。前進=車の前方向き、後進=車の後方向き。
+// スタート側は「最初に動き出す向き」、終了側は「最後に走ってきた向き」
+function buildDirArrows(){
+  const n = simPoses.length;
+  if (n < 2 || !simVehDims) return [];
+  const d = simVehDims;
+  const cy = (d.front + d.rear) / 2;
+  const La = Math.max(1200, d.L * 0.4), Wa = d.W * 0.4;
+  const sw = Wa * 0.22, hw = Wa / 2, hl = La * 0.4;
+  const base = [[-sw, -La/2], [sw, -La/2], [sw, La/2 - hl], [hw, La/2 - hl], [0, La/2], [-hw, La/2 - hl], [-sw, La/2 - hl]];
+  const mk = (pose, rev, attr) => {
+    const pts = base.map(([x, y]) => {
+      const lx = rev ? -x : x, ly = cy + (rev ? -y : y);
+      return [pose.x + lx * Math.cos(pose.phi) - ly * Math.sin(pose.phi), pose.y + lx * Math.sin(pose.phi) + ly * Math.cos(pose.phi)];
+    });
+    return Object.assign({pts}, attr);
+  };
+  return [
+    mk(simPoses[0], !!(simDirMeta[1] && simDirMeta[1].isReverse), {css: '#00ffaa', tc: 0x00FFAA, aci: 3}),
+    mk(simPoses[n-1], !!(simDirMeta[n-1] && simDirMeta[n-1].isReverse), {css: '#ff8800', tc: 0xFF8800, aci: 30})
+  ];
+}
+
 function redraw() {
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
@@ -1021,11 +1149,19 @@ function redraw() {
     );
   });
   if (opMode === 'road' && isDragging && dragStartG && dragCurrentG) {
-    drawRoad({x1: dragStartG.x, y1: dragStartG.y, x2: dragCurrentG.x, y2: dragCurrentG.y, width: (Number(document.getElementById('roadWidth').value) || 4.0) * 1000}, ctx, true);
+    drawRoad({x1: dragStartG.x, y1: dragStartG.y, x2: dragCurrentG.x, y2: dragCurrentG.y, width: (Number(document.getElementById('roadWidth').value) || 4000)}, ctx, true);
   }
 
   const tractLineW = Math.max(40, 2 / viewScale), tractTrajW = Math.max(30, 2 / viewScale);
   const trailLineW = Math.max(35, 2 / viewScale), trailTrajW = Math.max(25, 2 / viewScale);
+
+  const zOrderIdx = () => {
+    const o = simSnapshots.map((_, i) => i);
+    const sel = document.getElementById('zOrder');
+    if (sel && sel.value === 'start') o.reverse();   // 先に描いた図形が奥、後に描いた図形が手前
+    return o;
+  };
+  if (simShapeKey) zOrderIdx().forEach(i => drawVehicleShape(ctx, simPoses[i], simShapeKey));
 
   simSnapshots.forEach((box, idx) => {
     const isStart = idx === 0, isEnd = idx === simSnapshots.length-1, isRev = simDirMeta[idx]?.isReverse;
@@ -1035,9 +1171,6 @@ function redraw() {
     ctx.moveTo(box[0].x, box[0].y);
     for (let i = 1; i < 4; i++) ctx.lineTo(box[i].x, box[i].y);
     ctx.closePath(); ctx.stroke();
-
-    const vp = simPoses[idx];
-    if (vp) dxfLines.push({type: 'INSERT', name: 'VEHICLE_BOX', x: vp.x, y: vp.y, rot: vp.phi * 180 / Math.PI, layer: 'VehicleBox', color: 3});
 
     if (isStart || isEnd) drawFrontMarker(box, ctx, isRev);
   });
@@ -1053,11 +1186,17 @@ function redraw() {
       for (let i = 1; i < 4; i++) ctx.lineTo(box[i].x, box[i].y);
       ctx.closePath(); ctx.stroke();
 
-      const tp = simTrailerPoses[idx];
-      if (tp) dxfLines.push({type: 'INSERT', name: 'TRAILER_BOX', x: tp.x, y: tp.y, rot: tp.phi * 180 / Math.PI, layer: 'TrailerBox', color: 6});
     });
     ctx.setLineDash([]);
   }
+
+  // DXFの挿入順 = CAD上の前後関係(後から出したものが手前)。車1台ごとに [絵, 位置を示す四角, トレーラー] をまとめて出す
+  zOrderIdx().forEach(i => {
+    const vp = simPoses[i], tp = simTrailerPoses[i];
+    if (vp && simShapeKey) dxfLines.push({type: 'INSERT', name: 'VEHICLE_' + simShapeKey, x: vp.x, y: vp.y, rot: vp.phi * 180 / Math.PI, layer: 'VehicleShape', color: 3, tc: 0x00AAFF, transp: 0x020000B2});
+    if (vp) dxfLines.push({type: 'INSERT', name: 'VEHICLE_BOX', x: vp.x, y: vp.y, rot: vp.phi * 180 / Math.PI, layer: 'VehicleBox', color: 3});
+    if (tp && simTrailerSnapshots.length > 0) dxfLines.push({type: 'INSERT', name: 'TRAILER_BOX', x: tp.x, y: tp.y, rot: tp.phi * 180 / Math.PI, layer: 'TrailerBox', color: 6});
+  });
 
   if (simPathPoints[0] && simPathPoints[0].length > 0) {
     ctx.beginPath();
@@ -1088,6 +1227,16 @@ function redraw() {
   }
 
   ctx.beginPath(); ctx.fillStyle = '#ff0044'; ctx.arc(0, 0, 100, 0, Math.PI*2); ctx.fill();
+
+  // 進行方向の矢印(最前面): スタート=緑 / 終了=オレンジ
+  buildDirArrows().forEach(ar => {
+    ctx.beginPath();
+    ar.pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]));
+    ctx.closePath();
+    ctx.fillStyle = ar.css; ctx.fill();
+    ctx.strokeStyle = '#000'; ctx.lineWidth = Math.max(15, 1.2 / viewScale); ctx.stroke();
+    dxfLines.push({type: 'POLY', layer: 'Direction', color: ar.aci, tc: ar.tc, pts: ar.pts, fill: true});
+  });
   ctx.restore();
 
   ctx.fillStyle = '#ffffff'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center';
@@ -1152,29 +1301,22 @@ function downloadDXF(){
   if (dxfLines.length === 0){ alert("先に描画を行ってください。"); return; }
   if (isDirty && !confirm("変更値が軌跡に反映されていません。このまま保存してもよろしいですか？\n※描画更新後に保存する事をおススメします。")) return;
   
-  let dxf = "0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n0\nENDSEC\n0\nSECTION\n2\nTABLES\n0\nENDSEC\n0\nSECTION\n2\nBLOCKS\n";
-  const blockDefDxf = (name, corners) => {
-    if (!corners || corners.length < 4) return "";
-    let b = `0\nBLOCK\n8\n0\n2\n${name}\n70\n0\n10\n0.0\n20\n0.0\n30\n0.0\n3\n${name}\n`;
-    b += `0\nPOLYLINE\n8\n0\n62\n0\n66\n1\n70\n1\n10\n0.0\n20\n0.0\n30\n0.0\n`;
-    corners.forEach(c => { b += `0\nVERTEX\n8\n0\n10\n${c.x.toFixed(2)}\n20\n${c.y.toFixed(2)}\n30\n0.0\n`; });
-    b += `0\nSEQEND\n8\n0\n0\nENDBLK\n8\n0\n`;
-    return b;
-  };
-  if (dxfLines.some(i => i.type === 'INSERT' && i.name === 'VEHICLE_BOX')) dxf += blockDefDxf('VEHICLE_BOX', simBlockDefs.vehicle);
-  if (dxfLines.some(i => i.type === 'INSERT' && i.name === 'TRAILER_BOX')) dxf += blockDefDxf('TRAILER_BOX', simBlockDefs.trailer);
-  dxf += "0\nENDSEC\n0\nSECTION\n2\nENTITIES\n";
-  dxfLines.forEach(i => {
-    if (i.type === 'INSERT') {
-      dxf += `0\nINSERT\n8\n${i.layer}\n${i.color?`62\n${i.color}\n`:''}2\n${i.name}\n10\n${i.x.toFixed(2)}\n20\n${i.y.toFixed(2)}\n30\n0.0\n41\n1.0\n42\n1.0\n43\n1.0\n50\n${i.rot.toFixed(4)}\n`;
-    } else if (i.type === 'TEXT') {
-      dxf += `0\nTEXT\n8\n${i.layer}\n${i.color?`62\n${i.color}\n`:''}10\n${i.x.toFixed(2)}\n20\n${i.y.toFixed(2)}\n40\n${i.height.toFixed(2)}\n1\n${i.text}\n50\n${i.rotation.toFixed(2)}\n`;
-      if (i.align) dxf += `72\n1\n73\n2\n11\n${i.x.toFixed(2)}\n21\n${i.y.toFixed(2)}\n`;
-    } else {
-      dxf += `0\nLINE\n8\n${i.layer||'0'}\n${i.color?`62\n${i.color}\n`:''}10\n${i.x1.toFixed(2)}\n20\n${i.y1.toFixed(2)}\n11\n${i.x2.toFixed(2)}\n21\n${i.y2.toFixed(2)}\n`;
-    }
+  // 出力はすべてAutoCAD 2004形式(ハッチ・点線・真の色・透過性ByBlockに対応)
+  const rectDef = (name, corners, dashed) => ({
+    name, polys: [[1, corners.map(c => [Math.round(c.x * 100) / 100, Math.round(c.y * 100) / 100])]], hatches: [],
+    lwByBlock: false, polyTrueColor: null, ltype: dashed ? 'DASHED' : null, ltscale: dashed ? 50 : null
   });
-  dxf += "0\nENDSEC\n0\nEOF\n";
+  const defs = [];
+  if (simShapeKey) {
+    const sh = VEHICLE_SHAPES[simShapeKey];
+    // 車両ブロック: 線=黒(真の色)・線幅ByBlock、本体ハッチ=ByBlock色、透過性=ByBlock
+    defs.push({name: 'VEHICLE_' + simShapeKey, polys: sh.p, hatches: sh.h, lwByBlock: true, polyTrueColor: 0});
+  }
+  if (dxfLines.some(i => i.type === 'INSERT' && i.name === 'VEHICLE_BOX') && simBlockDefs.vehicle.length >= 4)
+    defs.push(rectDef('VEHICLE_BOX', simBlockDefs.vehicle, !!simShapeKey));   // 絵があるときは点線の「位置を示す四角」
+  if (dxfLines.some(i => i.type === 'INSERT' && i.name === 'TRAILER_BOX') && simBlockDefs.trailer.length >= 4)
+    defs.push(rectDef('TRAILER_BOX', simBlockDefs.trailer, false));
+  const dxf = buildDxf2004(dxfLines, defs);
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([dxf], {type: "application/dxf"}));
   a.download = getExportFilename("dxf");
@@ -1267,7 +1409,7 @@ function initCanvasEvents() {
       const dist = Math.max(1000, Math.hypot(dx, dy));
       const angle = Math.round(Math.atan2(dy, dx) / (Math.PI / 36)) * (Math.PI / 36);
       dragCurrentG = { x: dragStartG.x + Math.cos(angle) * dist, y: dragStartG.y + Math.sin(angle) * dist };
-      if (Math.hypot(dx, dy) > 100) roads.push({ x1: dragStartG.x, y1: dragStartG.y, x2: dragCurrentG.x, y2: dragCurrentG.y, width: (Number(document.getElementById('roadWidth').value) || 4.0) * 1000, dim: { t: 0.15 } });
+      if (Math.hypot(dx, dy) > 100) roads.push({ x1: dragStartG.x, y1: dragStartG.y, x2: dragCurrentG.x, y2: dragCurrentG.y, width: (Number(document.getElementById('roadWidth').value) || 4000), dim: { t: 0.15 } });
       updateViewBox(); redraw();
     }
     if (e.target.hasPointerCapture(e.pointerId)) {
@@ -1300,7 +1442,7 @@ window.onload = function(){
   if (typeof LOGO_BASE64 !== 'undefined') document.getElementById('logo-img').src = LOGO_BASE64;
   
   // 全ての入力欄にinputmodeを追加
-  document.querySelectorAll('input[type="number"]').forEach(el => el.setAttribute('inputmode', 'none'));
+  document.querySelectorAll('input[type="number"]').forEach(el => { el.type = 'text'; el.removeAttribute('step'); el.setAttribute('inputmode', 'none'); el.dataset.isNum = 'true'; });
   
   initVehiclePresets(); initTrailerPresets(); initCanvasEvents(); initNumpadDrag();
   
@@ -1315,8 +1457,14 @@ window.onload = function(){
     }
   });
   
-  document.querySelector('.sidebar').addEventListener('input', (e) => { if (e.target.name !== 'opMode') markAsChanged(); });
-  document.querySelector('.sidebar').addEventListener('change', (e) => { if (e.target.name !== 'opMode') markAsChanged(); });
+  document.querySelector('.sidebar').addEventListener('input', (e) => {
+    if (e.target.dataset && e.target.dataset.isNum === 'true') {   // 数値欄は 数字と - のみ
+      const c = e.target.value.replace(/[^0-9\-]/g, '');
+      if (c !== e.target.value) e.target.value = c;
+    }
+    if (e.target.name !== 'opMode' && !(e.target.dataset && e.target.dataset.noDirty)) markAsChanged();
+  });
+  document.querySelector('.sidebar').addEventListener('change', (e) => { if (e.target.name !== 'opMode' && !(e.target.dataset && e.target.dataset.noDirty)) markAsChanged(); });
   
   // 画面のどこかをタッチした時に各種メニューを閉じる処理
   document.addEventListener('pointerdown', (e) => {

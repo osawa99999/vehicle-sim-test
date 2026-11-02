@@ -4,9 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="color-scheme" content="dark">
-  <title>車両軌跡シミュレーター＆DXFジェネレーター v0.050 (iPad最適化・完全版)</title>
-  <link rel="stylesheet" href="style.css">
+  <title>車両軌跡シミュレーター＆DXFジェネレーター v0.052 (iPad最適化・完全版)</title>
+  <link rel="stylesheet" href="style_1.css">
   <script src="data.js"></script>
+  <script src="vehicle_shapes.js"></script>
+  <script src="dxf_writer_1.js"></script>
 </head>
 <body>
   <div id="toast" class="toast-notify"></div>
@@ -21,7 +23,7 @@
           <div style="display:flex; flex-direction:column; gap:2px; flex:1; min-width:0;">
             <span style="font-size: 1.1rem; font-weight: bold; line-height: 1.2; white-space: nowrap;">車両軌跡<b style="color:#ffaa00; font-size:1.1rem;">簡易</b>シミュレーター</span>
             <div style="display:flex; align-items:center; gap:6px;">
-              <span style="font-size: 0.75rem; color: #888; font-weight: normal; line-height: 1;">v0.050</span>
+              <span style="font-size: 0.75rem; color: #888; font-weight: normal; line-height: 1;">v0.052</span>
               <img src="https://hits.sh/osaki-kensetsu.github.io/vehicle-simulator.svg?style=flat-square&label=VISITS&color=007acc&labelColor=222222" alt="visits" style="height:12px;opacity:.8;color-scheme:light;" onerror="this.style.display='none'">
             </div>
           </div>
@@ -41,7 +43,7 @@
             ※道路や寸法線を<b>長押し(または右クリック)</b>で削除
           </div>
           <div class="note" style="color:#ffaa00; margin-bottom:10px; font-weight:bold;">※この機能は道路幅のイメージ線を適当に描くだけの機能です。必要に応じてCADで修正してください。</div>
-          <div class="form-group" style="margin-bottom:0;"><label style="color:#fff;">道路幅 (m)</label><input type="number" step="0.1" id="roadWidth" value="4.0"></div>
+          <div class="form-group" style="margin-bottom:0;"><label style="color:#fff;">道路幅 (mm)</label><input type="number" id="roadWidth" value="4000"></div>
         </div>
       </div>
 
@@ -107,6 +109,8 @@
           </div>
           <button class="btn-img" onclick="document.getElementById('imgMenu').style.display = document.getElementById('imgMenu').style.display === 'none' ? 'block' : 'none'">画像出力 (PNG)</button>
         </div>
+        <div class="form-group" style="margin-bottom:0;"><label>重なり順（前面）</label><select id="zOrder" data-no-dirty="1" onchange="redraw()"><option value="end">終了位置が前面</option><option value="start">スタート位置が前面</option></select></div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.85rem;color:#ccc;cursor:pointer;"><input type="checkbox" id="useVehicleShape" checked onchange="markAsChanged()" style="width:auto;flex:0 0 auto;"> 車両の絵を使う（絵がある車種のみ）</label>
         <button class="btn-dxf" onclick="downloadDXF()">DXFファイル出力</button>
       </div>
 
@@ -123,17 +127,17 @@
           <button class="numpad-btn" onclick="inputNumpad('7')">7</button>
           <button class="numpad-btn" onclick="inputNumpad('8')">8</button>
           <button class="numpad-btn" onclick="inputNumpad('9')">9</button>
-          <button class="numpad-btn cmd" onclick="inputNumpad('BS')">BS</button>
           <button class="numpad-btn" onclick="inputNumpad('4')">4</button>
           <button class="numpad-btn" onclick="inputNumpad('5')">5</button>
           <button class="numpad-btn" onclick="inputNumpad('6')">6</button>
-          <button class="numpad-btn cmd" onclick="inputNumpad('C')">C</button>
           <button class="numpad-btn" onclick="inputNumpad('1')">1</button>
           <button class="numpad-btn" onclick="inputNumpad('2')">2</button>
           <button class="numpad-btn" onclick="inputNumpad('3')">3</button>
-          <button class="numpad-btn cmd" onclick="inputNumpad('.')">.</button>
-          <button class="numpad-btn span2" onclick="inputNumpad('0')">0</button>
-          <button class="numpad-btn enter span2" onclick="hideNumpad()">決定</button>
+          <button class="numpad-btn" onclick="inputNumpad('0')">0</button>
+          <button class="numpad-btn" onclick="inputNumpad('00')">00</button>
+          <button class="numpad-btn enter tall" onclick="hideNumpad()">決<br>定</button>
+          <button class="numpad-btn cmd" onclick="inputNumpad('-')">-</button>
+          <button class="numpad-btn cmd" onclick="inputNumpad('C')">C</button>
         </div>
       </div>
       
@@ -247,6 +251,6 @@
     </div>
   </div>
   
-  <script src="app_2.js"></script>
+  <script src="app_4.js"></script>
 </body>
 </html>

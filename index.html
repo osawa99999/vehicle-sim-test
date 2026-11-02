@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="color-scheme" content="dark">
-  <title>車両軌跡シミュレーター＆DXFジェネレーター v0.052 (iPad最適化・完全版)</title>
-  <link rel="stylesheet" href="style_1.css">
-  <script src="data.js"></script>
+  <title>車両軌跡シミュレーター＆DXFジェネレーター v0.053 (iPad最適化・完全版)</title>
+  <link rel="stylesheet" href="style_2.css">
+  <script src="data_1.js"></script>
   <script src="vehicle_shapes.js"></script>
   <script src="dxf_writer_1.js"></script>
 </head>
@@ -23,7 +23,7 @@
           <div style="display:flex; flex-direction:column; gap:2px; flex:1; min-width:0;">
             <span style="font-size: 1.1rem; font-weight: bold; line-height: 1.2; white-space: nowrap;">車両軌跡<b style="color:#ffaa00; font-size:1.1rem;">簡易</b>シミュレーター</span>
             <div style="display:flex; align-items:center; gap:6px;">
-              <span style="font-size: 0.75rem; color: #888; font-weight: normal; line-height: 1;">v0.052</span>
+              <span style="font-size: 0.75rem; color: #888; font-weight: normal; line-height: 1;">v0.053</span>
               <img src="https://hits.sh/osaki-kensetsu.github.io/vehicle-simulator.svg?style=flat-square&label=VISITS&color=007acc&labelColor=222222" alt="visits" style="height:12px;opacity:.8;color-scheme:light;" onerror="this.style.display='none'">
             </div>
           </div>
@@ -54,8 +54,13 @@
           <h2 style="border:none; margin:0 0 5px 0;">車種プリセット</h2>
           <select id="vehiclePreset" onchange="applyVehiclePreset()" style="width:100%; font-size:0.95rem; padding:8px;"></select>
         </div>
+        <!-- 車両の絵 -->
+        <div class="section sim-only">
+          <label style="display:flex;align-items:center;gap:8px;font-size:.95rem;font-weight:bold;color:#0af;cursor:pointer;"><input type="checkbox" id="useVehicleShape" onchange="onToggleVehicleShape()" style="width:auto;flex:0 0 auto;"> 車両の絵を使う</label>
+          <div class="note" id="shapeNote" style="margin:6px 0 0 0;"></div>
+        </div>
         <!-- 寸法 -->
-        <details class="section sim-only">
+        <details class="section sim-only" id="vehicleDimsSection">
           <summary>車両寸法 (mm)</summary>
           <div class="note">プリセットは代表値です。正確な検証には車検証等を確認してください</div>
           <div class="form-group"><label>全長 (L)</label><input type="number" id="L" value="4995" oninput="onInputVehicle()"></div>
@@ -110,7 +115,6 @@
           <button class="btn-img" onclick="document.getElementById('imgMenu').style.display = document.getElementById('imgMenu').style.display === 'none' ? 'block' : 'none'">画像出力 (PNG)</button>
         </div>
         <div class="form-group" style="margin-bottom:0;"><label>重なり順（前面）</label><select id="zOrder" data-no-dirty="1" onchange="redraw()"><option value="end">終了位置が前面</option><option value="start">スタート位置が前面</option></select></div>
-        <label style="display:flex;align-items:center;gap:6px;font-size:.85rem;color:#ccc;cursor:pointer;"><input type="checkbox" id="useVehicleShape" checked onchange="markAsChanged()" style="width:auto;flex:0 0 auto;"> 車両の絵を使う（絵がある車種のみ）</label>
         <button class="btn-dxf" onclick="downloadDXF()">DXFファイル出力</button>
       </div>
 
@@ -251,6 +255,6 @@
     </div>
   </div>
   
-  <script src="app_4.js"></script>
+  <script src="app_5.js"></script>
 </body>
 </html>

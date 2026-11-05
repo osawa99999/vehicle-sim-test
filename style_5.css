@@ -138,3 +138,16 @@ button:disabled{background:#555!important;color:#aaa!important;cursor:not-allowe
 /* 描画更新待ちで出力ボタンをグレーアウト(クリック/ホバーで案内) */
 button.btn-locked{background:#555!important;color:#aaa!important;cursor:not-allowed!important}
 .float-tip{position:fixed;display:none;z-index:4000;background:rgba(214,130,0,.97);color:#fff;border:1px solid #fc6;border-radius:5px;padding:5px 10px;font-size:.8rem;font-weight:bold;pointer-events:none;box-shadow:0 3px 8px rgba(0,0,0,.5);white-space:nowrap}
+
+/* DXF出力先CADの選択ダイアログ(背景をグレーアウト) */
+.modal-back{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:5000;align-items:center;justify-content:center}
+.modal-box{background:#2d2d2d;border:1px solid #666;border-radius:10px;padding:22px 26px 16px 26px;box-shadow:0 10px 30px rgba(0,0,0,.7);max-width:92vw;text-align:center}
+.modal-title{font-size:1.05rem;font-weight:bold;color:#fff;margin-bottom:16px}
+.modal-btns{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.btn-cad{width:210px;padding:16px 10px;border-radius:8px;color:#fff;display:flex;flex-direction:column;gap:6px;align-items:center;border:2px solid transparent}
+.btn-cad b{font-size:1.25rem;letter-spacing:.04em}
+.btn-cad small{font-size:.75rem;font-weight:normal;opacity:.92;line-height:1.35}
+.cad-acad{background:#c8102e}.cad-acad:hover{background:#e0213f}
+.cad-jw{background:#2aa7e1}.cad-jw:hover{background:#4dbaee}
+.modal-cancel{margin-top:14px;width:auto;padding:7px 22px;background:#444;color:#ddd;font-size:.85rem}
+.modal-cancel:hover{background:#555}

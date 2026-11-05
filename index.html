@@ -4,14 +4,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="color-scheme" content="dark">
-  <title>車両軌跡シミュレーター＆DXFジェネレーター v0.059 (iPad最適化・完全版)</title>
-  <link rel="stylesheet" href="style_4.css">
+  <title>車両軌跡シミュレーター＆DXFジェネレーター v0.060 (iPad最適化・完全版)</title>
+  <link rel="stylesheet" href="style_5.css">
   <script src="data_2.js"></script>
   <script src="vehicle_shapes_4.js"></script>
-  <script src="dxf_writer_1.js"></script>
+  <script src="dxf_writer_2.js"></script>
 </head>
 <body>
   <div id="toast" class="toast-notify"></div>
+  <div id="exportModal" class="modal-back" style="display:none" onclick="if(event.target===this) closeExportModal()">
+    <div class="modal-box">
+      <div class="modal-title">DXFの出力先CADを選んでください</div>
+      <div class="modal-btns">
+        <button class="btn-cad cad-acad" onclick="chooseDxf('acad')"><b>AutoCAD</b><small>ブロック・ハッチ・透過・点線あり</small></button>
+        <button class="btn-cad cad-jw" onclick="chooseDxf('jw')"><b>JW-CAD</b><small>ブロック無し・全て線分で出力</small></button>
+      </div>
+      <button class="modal-cancel" onclick="closeExportModal()">キャンセル</button>
+    </div>
+  </div>
   <div id="floatTip" class="float-tip">描画更新（軌跡再計算）をしてください</div>
   <div class="topbar">
     <div class="topbar-ctrl">
@@ -24,7 +34,7 @@
           </div>
         </div>
       </div>
-      <button class="btn-dxf" onclick="downloadDXF()">DXFファイル出力</button>
+      <button class="btn-dxf" onclick="openExportModal()">DXFファイル出力</button>
       <span class="top-z"><label for="zOrder">重なり順（前面）</label><select id="zOrder" data-no-dirty="1" onchange="redraw()"><option value="end">終了位置が前面</option><option value="start">スタート位置が前面</option></select></span>
       <button class="btn-draw top-sim" onclick="draw()">描画更新 (軌跡再計算)</button>
     </div>
@@ -40,7 +50,7 @@
           <div style="display:flex; flex-direction:column; gap:2px; flex:1; min-width:0;">
             <span style="font-size: 1.1rem; font-weight: bold; line-height: 1.2; white-space: nowrap;">車両軌跡<b style="color:#ffaa00; font-size:1.1rem;">簡易</b>シミュレーター</span>
             <div style="display:flex; align-items:center; gap:6px;">
-              <span style="font-size: 0.75rem; color: #888; font-weight: normal; line-height: 1;">v0.059</span>
+              <span style="font-size: 0.75rem; color: #888; font-weight: normal; line-height: 1;">v0.060</span>
               <img src="https://hits.sh/osaki-kensetsu.github.io/vehicle-simulator.svg?style=flat-square&label=VISITS&color=007acc&labelColor=222222" alt="visits" style="height:12px;opacity:.8;color-scheme:light;" onerror="this.style.display='none'">
             </div>
           </div>
@@ -260,6 +270,6 @@
     </div>
   </div>
   
-  <script src="app_9.js"></script>
+  <script src="app_10.js"></script>
 </body>
 </html>

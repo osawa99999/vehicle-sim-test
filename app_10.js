@@ -1396,16 +1396,89 @@ function downloadImage(bgMode) {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
 
+// ---- JW-CAD向け: ブロック(INSERT)を線分に展開する ----
+function flattenBulgePoly(v, closed, tol) {
+  const pts = [];
+  const n = v.length, segs = closed ? n : n - 1;
+  for (let i = 0; i < segs; i++) {
+    const a = v[i], b = v[(i + 1) % n], bu = a[2] || 0;
+    pts.push([a[0], a[1]]);
+    if (bu) {
+      const dx = b[0] - a[0], dy = b[1] - a[1], c = Math.hypot(dx, dy);
+      if (c < 1e-9) continue;
+      const th = 4 * Math.atan(bu), ath = Math.abs(th);
+      const r = c / (2 * Math.sin(ath / 2)), sg = bu > 0 ? 1 : -1;
+      const d = r * Math.cos(ath / 2);
+      const cx = (a[0] + b[0]) / 2 + sg * (-dy / c) * d, cy = (a[1] + b[1]) / 2 + sg * (dx / c) * d;
+      const a0 = Math.atan2(a[1] - cy, a[0] - cx);
+      const dTh = 2 * Math.acos(Math.max(-1, Math.min(1, 1 - tol / r)));
+      const m = Math.max(2, Math.ceil(ath / Math.max(dTh, 0.02)));
+      for (let k = 1; k < m; k++) { const t = a0 + th * k / m; pts.push([cx + r * Math.cos(t), cy + r * Math.sin(t)]); }
+    }
+  }
+  if (!closed) pts.push([v[n-1][0], v[n-1][1]]);
+  return pts;
+}
+function explodeForJW() {
+  const out = [];
+  const addPoly = (pts, closed, layer, color, ltype, tf) => {
+    const P = tf ? pts.map(p => tf(p[0], p[1])) : pts;
+    const m = closed ? P.length : P.length - 1;
+    for (let i = 0; i < m; i++) {
+      const a = P[i], b = P[(i + 1) % P.length];
+      out.push({type: 'LINE', x1: a[0], y1: a[1], x2: b[0], y2: b[1], layer, color, ltype});
+    }
+  };
+  dxfLines.forEach(e => {
+    if (e.type === 'INSERT') {
+      const rad = e.rot * Math.PI / 180, c = Math.cos(rad), sn = Math.sin(rad);
+      const tf = (x, y) => [e.x + x * c - y * sn, e.y + x * sn + y * c];
+      if (e.name === 'VEHICLE_BOX' || e.name === 'TRAILER_BOX') {
+        const corners = (e.name === 'VEHICLE_BOX' ? simBlockDefs.vehicle : simBlockDefs.trailer).map(p => [p.x, p.y]);
+        const dashed = (e.name === 'VEHICLE_BOX') ? !!simShapeKey : !!simTrailerShapeKey;
+        if (corners.length >= 4) addPoly(corners, true, e.layer, e.color, dashed ? 'DASHED' : null, tf);
+      } else {
+        const isT = e.name.startsWith('TRAILER_');
+        const sh = (isT ? TRAILER_SHAPES : VEHICLE_SHAPES)[e.name.replace(/^(VEHICLE|TRAILER)_/, '')];
+        if (sh) sh.p.forEach(pl => addPoly(flattenBulgePoly(pl[1], !!pl[0], 1), !!pl[0], e.layer, 7, null, tf));   // 線は黒/白(ACI7)
+      }
+    } else if (e.type === 'POLY') {
+      addPoly(e.pts, true, e.layer, e.color, null, null);   // 矢印は輪郭線のみ(塗りつぶしは出力しない)
+    } else {
+      out.push(e);
+    }
+  });
+  return out;
+}
+// ---- DXF出力: CAD選択ダイアログ ----
+function openExportModal() {
+  if (exportLocked()) return;
+  if (dxfLines.length === 0) { alert("先に描画を行ってください。"); return; }
+  document.getElementById('exportModal').style.display = 'flex';
+}
+function closeExportModal() { document.getElementById('exportModal').style.display = 'none'; }
+function chooseDxf(mode) { closeExportModal(); downloadDXF(mode); }
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeExportModal(); });
+
 function jstStamp() {   // 端末のタイムゾーンに関係なく日本時間(UTC+9)
   const d = new Date(Date.now() + 9 * 3600 * 1000);
   const p = (n) => String(n).padStart(2, '0');
   return p(d.getUTCFullYear() % 100) + p(d.getUTCMonth() + 1) + p(d.getUTCDate()) + p(d.getUTCHours()) + p(d.getUTCMinutes()) + p(d.getUTCSeconds());
 }
-function downloadDXF(){
+function downloadDXF(mode){
+  mode = mode || 'acad';
   if (exportLocked()) return;
   if (dxfLines.length === 0){ alert("先に描画を行ってください。"); return; }
   if (isDirty && !confirm("変更値が軌跡に反映されていません。このまま保存してもよろしいですか？\n※描画更新後に保存する事をおススメします。")) return;
   
+  if (mode === 'jw') {   // JW-CAD向け: ブロック・ハッチ・ポリラインを使わず、全て線分(R12形式)で出力
+    const jw = buildDxfR12(explodeForJW());
+    const aj = document.createElement("a");
+    aj.href = URL.createObjectURL(new Blob([jw], {type: "application/dxf"}));
+    aj.download = getExportFilename("dxf").replace(/\.dxf$/, "_JW.dxf");
+    document.body.appendChild(aj); aj.click(); document.body.removeChild(aj);
+    return;
+  }
   // 出力はすべてAutoCAD 2004形式(ハッチ・点線・真の色・透過性ByBlockに対応)
   const rectDef = (name, corners, dashed) => ({
     name, polys: [[1, corners.map(c => [Math.round(c.x * 100) / 100, Math.round(c.y * 100) / 100])]], hatches: [],
